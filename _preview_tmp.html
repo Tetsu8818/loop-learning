@@ -1,0 +1,442 @@
+<title>知見の引き継ぎループ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Old+Mincho:wght@400;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap">
+
+<style>
+:root{
+  --ground:#F2F5F3;
+  --surface:#FFFFFF;
+  --surface-2:#E7EDEA;
+  --ink:#16211D;
+  --ink-2:#4A5A54;
+  --ink-3:#78867F;
+  --rule:#D1DBD6;
+  --accent:#0F6E5C;
+  --accent-soft:#DCEBE5;
+  --warn:#A25C27;
+  --warn-soft:#F3E6D8;
+  --shadow:0 1px 2px rgba(22,33,29,.06), 0 8px 24px -16px rgba(22,33,29,.28);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#0F1513;
+    --surface:#16201D;
+    --surface-2:#1D2926;
+    --ink:#E3EAE7;
+    --ink-2:#A6B5AF;
+    --ink-3:#7B8C86;
+    --rule:#2B3833;
+    --accent:#5BC4A8;
+    --accent-soft:#17332C;
+    --warn:#D79A5E;
+    --warn-soft:#31261B;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.8);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0F1513;
+  --surface:#16201D;
+  --surface-2:#1D2926;
+  --ink:#E3EAE7;
+  --ink-2:#A6B5AF;
+  --ink-3:#7B8C86;
+  --rule:#2B3833;
+  --accent:#5BC4A8;
+  --accent-soft:#17332C;
+  --warn:#D79A5E;
+  --warn-soft:#31261B;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.8);
+}
+
+*{box-sizing:border-box}
+
+body{
+  background:var(--ground);
+  color:var(--ink);
+  font-family:"Zen Kaku Gothic New","Hiragino Kaku Gothic ProN","Yu Gothic UI",system-ui,sans-serif;
+  font-size:16px;
+  line-height:1.9;
+  margin:0;
+  padding:0 20px 96px;
+  -webkit-font-smoothing:antialiased;
+}
+
+.wrap{max-width:1060px;margin:0 auto}
+.col{max-width:660px;width:100%;margin:0 auto}
+
+header{
+  padding:72px 0 36px;
+  border-bottom:1px solid var(--rule);
+  margin-bottom:56px;
+}
+.eyebrow{
+  font-family:"JetBrains Mono",ui-monospace,monospace;
+  font-size:12px;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:var(--accent);
+  margin:0 0 18px;
+}
+h1{
+  font-family:"Zen Old Mincho","Yu Mincho",serif;
+  font-weight:700;
+  font-size:clamp(30px,5.2vw,46px);
+  line-height:1.35;
+  letter-spacing:.01em;
+  margin:0 0 22px;
+  text-wrap:balance;
+}
+.lede{font-size:17px;color:var(--ink-2);margin:0}
+
+section{margin-bottom:72px}
+h2{
+  font-family:"Zen Old Mincho","Yu Mincho",serif;
+  font-weight:700;
+  font-size:26px;
+  line-height:1.5;
+  margin:0 0 8px;
+  text-wrap:balance;
+}
+h2 + .sub{color:var(--ink-3);font-size:14px;margin:0 0 28px}
+p{margin:0 0 18px}
+p:last-child{margin-bottom:0}
+strong{font-weight:700;color:var(--ink)}
+code{
+  font-family:"JetBrains Mono",ui-monospace,monospace;
+  font-size:.86em;
+  background:var(--surface-2);
+  padding:.14em .42em;
+  border-radius:3px;
+  word-break:break-all;
+}
+
+figure{margin:36px 0;max-width:1060px;width:100%}
+.figbox{
+  background:var(--surface);
+  border:1px solid var(--rule);
+  border-radius:6px;
+  padding:24px 20px 18px;
+  overflow-x:auto;
+  box-shadow:var(--shadow);
+}
+figure svg{display:block;width:100%;min-width:660px;height:auto;color:var(--ink)}
+#ah-a path{fill:var(--accent)}
+#ah2w path{fill:var(--warn)}
+figcaption{
+  font-size:13.5px;
+  color:var(--ink-3);
+  margin-top:14px;
+  line-height:1.75;
+  max-width:70ch;
+}
+
+.note{
+  background:var(--surface);
+  border:1px solid var(--rule);
+  border-left:3px solid var(--accent);
+  border-radius:4px;
+  padding:18px 22px;
+  margin:28px 0;
+  font-size:15px;
+}
+.note p{margin:0}
+.note .tag{
+  display:block;
+  font-family:"JetBrains Mono",ui-monospace,monospace;
+  font-size:11px;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  color:var(--accent);
+  margin-bottom:8px;
+}
+
+.tablewrap{overflow-x:auto;margin:28px 0;border:1px solid var(--rule);border-radius:6px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:14.5px;min-width:520px}
+th,td{text-align:left;padding:13px 18px;border-bottom:1px solid var(--rule);vertical-align:top;line-height:1.7}
+thead th{
+  background:var(--surface-2);
+  font-size:12px;
+  letter-spacing:.08em;
+  color:var(--ink-2);
+  font-weight:700;
+  white-space:nowrap;
+}
+tbody tr:last-child td{border-bottom:none}
+td.who{font-weight:700;white-space:nowrap}
+
+ol.steps{margin:24px 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:14px;counter-reset:s}
+ol.steps li{counter-increment:s;position:relative;padding-left:44px;font-size:15.5px}
+ol.steps li::before{
+  content:counter(s);
+  position:absolute;left:0;top:5px;
+  width:28px;height:28px;
+  display:grid;place-items:center;
+  border-radius:50%;
+  background:var(--accent-soft);
+  color:var(--accent);
+  font-family:"JetBrains Mono",ui-monospace,monospace;
+  font-size:13px;font-weight:500;
+}
+
+footer{
+  border-top:1px solid var(--rule);
+  padding-top:26px;
+  color:var(--ink-3);
+  font-size:13px;
+  line-height:1.8;
+}
+</style>
+
+<div class="wrap">
+
+<div class="col">
+<header>
+  <p class="eyebrow">loop-learning</p>
+  <h1>Claude が、自分の気づきを次の自分に手渡すしくみ</h1>
+  <p class="lede">ふつう、Claude Code はセッションを閉じた時点でその会話を忘れます。この仕組みは、次にそのプロジェクトを開いたときに前回までの会話を読み直し、「次も役に立ちそうなこと」だけを小さく書き残します。</p>
+</header>
+</div>
+
+<div class="col">
+<section>
+  <h2>ひとことで言うと</h2>
+  <p class="sub">やっていることは3つだけ</p>
+  <ol class="steps">
+    <li><strong>前の会話を、安いモデルに読ませてメモを取らせる。</strong>Haiku が会話全体を読んで、次に役立ちそうなことを最大3件だけ書き出します。</li>
+    <li><strong>そのメモを、いきなり本棚には入れない。</strong>まず「INBOX」という下書き置き場に積みます。まだ正しいかどうか、誰も確認していないからです。</li>
+    <li><strong>Claude 本体が選り分ける。</strong>残す価値があるものだけを、正式なメモリとして保存します。残りは捨てます。</li>
+  </ol>
+  <p>この一周がぐるぐる回ることで、使うほどそのプロジェクト固有の知識が溜まっていきます。名前の <code>loop-learning</code> は、この一周のことです。</p>
+</section>
+</div>
+
+<figure>
+  <div class="figbox">
+    <svg viewBox="0 0 940 512" role="img" aria-label="会話のあと、次に開いたときに前の記録を拾い直し、Haikuが抽出し、INBOXに積み、Claude本体が選んでメモリに保存し、また会話に戻る六段階の循環図">
+      <defs>
+        <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
+        </marker>
+        <marker id="ah-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z"/>
+        </marker>
+      </defs>
+
+      <g font-family="'Zen Kaku Gothic New',sans-serif">
+
+        <rect x="355" y="29" width="230" height="72" rx="5" fill="var(--surface-2)" stroke="currentColor" stroke-width="1.2"/>
+        <text x="470" y="58" text-anchor="middle" font-size="15" font-weight="700" fill="currentColor">① ふつうに会話する</text>
+        <text x="470" y="80" text-anchor="middle" font-size="12.5" fill="var(--ink-3)">いつもの Claude Code</text>
+
+        <rect x="641" y="122" width="230" height="72" rx="5" fill="var(--surface-2)" stroke="currentColor" stroke-width="1.2"/>
+        <text x="756" y="151" text-anchor="middle" font-size="15" font-weight="700" fill="currentColor">② その会話を離れる</text>
+        <text x="756" y="173" text-anchor="middle" font-size="12.5" fill="var(--ink-3)">閉じても、開いたままでもよい</text>
+
+        <rect x="641" y="306" width="230" height="72" rx="5" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.6"/>
+        <text x="756" y="335" text-anchor="middle" font-size="15" font-weight="700" fill="var(--accent)">③ 次に開いた時に拾う</text>
+        <text x="756" y="357" text-anchor="middle" font-size="12.5" fill="var(--accent)">1回につき1本だけ</text>
+
+        <rect x="355" y="399" width="230" height="72" rx="5" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.6"/>
+        <text x="470" y="428" text-anchor="middle" font-size="15" font-weight="700" fill="var(--accent)">④ Haiku がメモを書く</text>
+        <text x="470" y="450" text-anchor="middle" font-size="12.5" fill="var(--accent)">箇条書きで最大3件</text>
+
+        <rect x="69" y="306" width="230" height="72" rx="5" fill="var(--warn-soft)" stroke="var(--warn)" stroke-width="1.6" stroke-dasharray="5 3"/>
+        <text x="184" y="335" text-anchor="middle" font-size="15" font-weight="700" fill="var(--warn)">⑤ INBOX に積む</text>
+        <text x="184" y="357" text-anchor="middle" font-size="12.5" fill="var(--warn)">まだ未検証の下書き</text>
+
+        <rect x="69" y="122" width="230" height="72" rx="5" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.6"/>
+        <text x="184" y="151" text-anchor="middle" font-size="15" font-weight="700" fill="var(--accent)">⑥ Claude 本体が選ぶ</text>
+        <text x="184" y="173" text-anchor="middle" font-size="12.5" fill="var(--accent)">残すものだけ memory へ</text>
+
+        <line x1="588" y1="86" x2="642" y2="124" stroke="currentColor" stroke-width="1.4" marker-end="url(#ah)"/>
+        <line x1="756" y1="198" x2="756" y2="300" stroke="currentColor" stroke-width="1.4" marker-end="url(#ah)"/>
+        <line x1="642" y1="376" x2="590" y2="412" stroke="currentColor" stroke-width="1.4" marker-end="url(#ah)"/>
+        <line x1="350" y1="412" x2="298" y2="376" stroke="currentColor" stroke-width="1.4" marker-end="url(#ah)"/>
+        <line x1="184" y1="300" x2="184" y2="200" stroke="currentColor" stroke-width="1.4" marker-end="url(#ah)"/>
+        <line x1="298" y1="124" x2="352" y2="86" stroke="var(--accent)" stroke-width="1.8" marker-end="url(#ah-a)"/>
+
+        <text x="652" y="92" font-size="12" fill="var(--ink-3)">区切りがつく</text>
+        <text x="776" y="254" font-size="12" fill="var(--ink-3)">しばらく間があいたら対象</text>
+        <text x="650" y="420" font-size="12" fill="var(--ink-3)">会話を圧縮して渡す</text>
+        <text x="290" y="420" text-anchor="end" font-size="12" fill="var(--ink-3)">書き出す</text>
+        <text x="164" y="254" text-anchor="end" font-size="12" fill="var(--ink-3)">「未確認 n 件」と通知</text>
+        <text x="290" y="92" text-anchor="end" font-size="12" font-weight="700" fill="var(--accent)">次の会話で使える</text>
+
+        <text x="470" y="243" text-anchor="middle" font-family="'Zen Old Mincho',serif" font-size="18" font-weight="700" fill="var(--ink-2)">一周して、また会話に戻る</text>
+        <text x="470" y="270" text-anchor="middle" font-size="12.5" fill="var(--ink-3)">色のついた ③④⑥ が中身のある工程。点線は「まだ信用していない置き場」</text>
+      </g>
+    </svg>
+  </div>
+  <figcaption>知見が一周する道すじ。安いモデル（Haiku）が下書きを書き、本体の Claude が採否を決める、という役割分担になっている。起点が「会話を閉じたとき」ではなく「次に開いたとき」なのが、この設計の要。</figcaption>
+</figure>
+
+<div class="col">
+<section>
+  <h2>なぜ、いったん INBOX に置くのか</h2>
+  <p class="sub">この仕組みで一番の工夫どころ</p>
+  <p>Haiku が書いたメモを、正式なメモリに直接書き込むことはしません。理由は2つあります。</p>
+  <p>ひとつは、<strong>正式なメモリには決まった形がある</strong>こと。目次と本文がファイルごとに分かれています。機械が書いた素の箇条書きを混ぜると、その構造が壊れます。</p>
+  <p>もうひとつは、<strong>そのメモを誰も確認していない</strong>こと。会話ログだけを機械的に読んだ結果なので、勘違いや、そのとき限りの話が混じります。確認せずに正式な記憶にすると、次回以降ずっと間違いを引きずります。</p>
+</section>
+</div>
+
+<figure>
+  <div class="figbox">
+    <svg viewBox="0 0 940 250" role="img" aria-label="下書きを直接メモリに追記する方式と、INBOXとClaudeによる精査を挟んでから保存する方式を比較した図">
+      <defs>
+        <marker id="ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
+        </marker>
+        <marker id="ah2w" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z"/>
+        </marker>
+      </defs>
+      <g font-family="'Zen Kaku Gothic New',sans-serif">
+
+        <text x="24" y="22" font-size="11.5" font-weight="700" letter-spacing=".08em" fill="var(--ink-3)">もし直接書いたら</text>
+        <rect x="24" y="36" width="160" height="52" rx="5" fill="var(--surface-2)" stroke="currentColor" stroke-width="1.2"/>
+        <text x="104" y="67" text-anchor="middle" font-size="13.5" fill="currentColor">Haiku の下書き</text>
+
+        <line x1="192" y1="62" x2="240" y2="62" stroke="var(--warn)" stroke-width="1.4" marker-end="url(#ah2w)"/>
+        <text x="216" y="46" text-anchor="middle" font-size="11.5" fill="var(--warn)">そのまま追記</text>
+
+        <rect x="248" y="36" width="180" height="52" rx="5" fill="var(--surface-2)" stroke="currentColor" stroke-width="1.2"/>
+        <text x="338" y="67" text-anchor="middle" font-size="13.5" fill="currentColor">正式なメモリ</text>
+
+        <text x="452" y="58" font-size="13" font-weight="700" fill="var(--warn)">✕ 書式がまざって目次が崩れる</text>
+        <text x="452" y="79" font-size="12.5" fill="var(--warn)">✕ 未確認の内容がそのまま定着する</text>
+
+        <line x1="24" y1="118" x2="916" y2="118" stroke="var(--rule)" stroke-width="1"/>
+
+        <text x="24" y="150" font-size="11.5" font-weight="700" letter-spacing=".08em" fill="var(--accent)">実際のやり方</text>
+        <rect x="24" y="164" width="160" height="52" rx="5" fill="var(--surface-2)" stroke="currentColor" stroke-width="1.2"/>
+        <text x="104" y="195" text-anchor="middle" font-size="13.5" fill="currentColor">Haiku の下書き</text>
+
+        <line x1="192" y1="190" x2="240" y2="190" stroke="currentColor" stroke-width="1.4" marker-end="url(#ah2)"/>
+
+        <rect x="248" y="164" width="170" height="52" rx="5" fill="var(--warn-soft)" stroke="var(--warn)" stroke-width="1.5" stroke-dasharray="5 3"/>
+        <text x="333" y="188" text-anchor="middle" font-size="13.5" font-weight="700" fill="var(--warn)">INBOX</text>
+        <text x="333" y="206" text-anchor="middle" font-size="11.5" fill="var(--warn)">未検証の置き場</text>
+
+        <line x1="426" y1="190" x2="474" y2="190" stroke="currentColor" stroke-width="1.4" marker-end="url(#ah2)"/>
+        <text x="450" y="150" text-anchor="middle" font-size="11.5" font-weight="700" fill="var(--accent)">ここが差</text>
+
+        <rect x="482" y="164" width="180" height="52" rx="5" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+        <text x="572" y="188" text-anchor="middle" font-size="13.5" font-weight="700" fill="var(--accent)">Claude 本体が精査</text>
+        <text x="572" y="206" text-anchor="middle" font-size="11.5" fill="var(--accent)">残す / 捨てるを決める</text>
+
+        <line x1="670" y1="190" x2="718" y2="190" stroke="currentColor" stroke-width="1.4" marker-end="url(#ah2)"/>
+
+        <rect x="726" y="164" width="190" height="52" rx="5" fill="var(--surface-2)" stroke="currentColor" stroke-width="1.2"/>
+        <text x="821" y="188" text-anchor="middle" font-size="13.5" fill="currentColor">正式なメモリ</text>
+        <text x="821" y="206" text-anchor="middle" font-size="11.5" fill="var(--ink-3)">決まった書式で保存</text>
+      </g>
+    </svg>
+  </div>
+  <figcaption>違いは「関所」がひとつ増えたことだけ。INBOX と精査の2箱を挟むことで、機械が書いた未確認のメモがそのまま正式な記憶になることを防いでいる。</figcaption>
+</figure>
+
+<div class="col">
+<section>
+  <h2>だれが何をしているか</h2>
+  <p class="sub">登場するのは4人と、2つの置き場</p>
+  <div class="tablewrap">
+    <table>
+      <thead>
+        <tr><th>登場人物</th><th>役割</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="who">フック</td><td>決まったタイミングで自動実行される小さなスクリプト。自分では何も判断せず、決められた仕事だけをする。</td></tr>
+        <tr><td class="who">Haiku</td><td>安いモデル。会話ログを読んで「知見らしきもの」を書き出す係。速くて安いかわりに、内容の裏は取れていない。</td></tr>
+        <tr><td class="who">Claude 本体</td><td>あなたと話している Claude。INBOX を読み、決められた基準で残す・捨てるを判断し、正式な形で保存する。</td></tr>
+        <tr><td class="who">あなた</td><td>ふだんは何もしなくてよい。Claude の判断が既存の記憶と食い違うときだけ、確認を求められる。</td></tr>
+        <tr><td class="who">INBOX</td><td>下書きの置き場。ここにあるうちは、まだ何も信用されていない。</td></tr>
+        <tr><td class="who">正式なメモリ</td><td>ここに入ったものは、以降のセッションで読まれる。1件1ファイルで書式が決まっている。</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2>いつ動くか</h2>
+  <p class="sub">フックは5本ある</p>
+</section>
+</div>
+
+<figure>
+  <div class="figbox">
+    <svg viewBox="0 0 940 240" role="img" aria-label="1回のセッションの時間軸上で、開始時に2本、編集のたびに1本、圧縮直前に1本、終了時に1本のフックが動くことを示した図">
+      <defs>
+        <marker id="ah3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
+        </marker>
+      </defs>
+      <g font-family="'Zen Kaku Gothic New',sans-serif">
+
+        <line x1="40" y1="130" x2="900" y2="130" stroke="currentColor" stroke-width="1.4" marker-end="url(#ah3)"/>
+        <text x="40" y="154" font-size="11.5" fill="var(--ink-3)">開く</text>
+        <text x="896" y="154" text-anchor="end" font-size="11.5" fill="var(--ink-3)">閉じる</text>
+
+        <circle cx="74" cy="130" r="7" fill="var(--surface)" stroke="currentColor" stroke-width="1.8"/>
+        <circle cx="104" cy="130" r="7.5" fill="var(--accent)"/>
+        <line x1="89" y1="121" x2="89" y2="74" stroke="var(--rule)" stroke-width="1"/>
+        <text x="89" y="64" text-anchor="middle" font-size="12.5" fill="var(--ink-3)">開いた瞬間（2本）</text>
+        <text x="89" y="186" text-anchor="middle" font-size="12" fill="var(--ink-2)">INBOX の件数を知らせる</text>
+        <text x="89" y="206" text-anchor="middle" font-size="12" fill="var(--accent)">前の会話を拾って抽出する</text>
+
+        <circle cx="330" cy="130" r="7" fill="var(--surface)" stroke="currentColor" stroke-width="1.8"/>
+        <circle cx="376" cy="130" r="7" fill="var(--surface)" stroke="currentColor" stroke-width="1.8"/>
+        <circle cx="422" cy="130" r="7" fill="var(--surface)" stroke="currentColor" stroke-width="1.8"/>
+        <line x1="376" y1="121" x2="376" y2="74" stroke="var(--rule)" stroke-width="1"/>
+        <text x="376" y="64" text-anchor="middle" font-size="12.5" fill="var(--ink-3)">ファイルを直すたび</text>
+        <text x="376" y="186" text-anchor="middle" font-size="12" fill="var(--ink-2)">触ったファイル名を記録する</text>
+
+        <circle cx="644" cy="130" r="7.5" fill="var(--accent)"/>
+        <line x1="644" y1="121" x2="644" y2="74" stroke="var(--accent)" stroke-width="1"/>
+        <text x="644" y="64" text-anchor="middle" font-size="12.5" fill="var(--ink-3)">会話が長くなり圧縮される直前</text>
+        <text x="644" y="186" text-anchor="middle" font-size="12" fill="var(--ink-2)">今の状況を3点に要約して保存</text>
+
+        <circle cx="862" cy="130" r="7.5" fill="var(--accent)"/>
+        <line x1="862" y1="121" x2="862" y2="74" stroke="var(--accent)" stroke-width="1"/>
+        <text x="862" y="64" text-anchor="middle" font-size="12.5" fill="var(--ink-3)">閉じた瞬間</text>
+        <text x="862" y="186" text-anchor="middle" font-size="12" fill="var(--ink-2)">知見を抜き出す</text>
+
+        <circle cx="34" cy="224" r="6.5" fill="var(--accent)"/>
+        <text x="48" y="229" font-size="12" fill="var(--ink-2)">お金がかかる（モデルを呼ぶ）</text>
+        <circle cx="272" cy="224" r="6" fill="var(--surface)" stroke="currentColor" stroke-width="1.8"/>
+        <text x="286" y="229" font-size="12" fill="var(--ink-2)">無料（ファイルを読み書きするだけ）</text>
+      </g>
+    </svg>
+  </div>
+  <figcaption>塗りつぶした3本だけがモデルを呼ぶ。1回あたり数セント。白丸の2本は無料で一瞬で終わる。「閉じた瞬間」は、長く開きっぱなしのセッションではほとんど発火しないので、実務は「開いた瞬間」の拾い直しが担っている。</figcaption>
+</figure>
+
+<div class="col">
+<section>
+  <h2>本体がプロジェクトの外にある理由</h2>
+  <p>このリポジトリに入っているのは、<strong>設計メモとマニュアルとテストだけ</strong>です。実際に動くスクリプトは <code>~/.claude/</code> の下にあります。</p>
+  <p>設定ファイルにはスクリプトの絶対パスが書いてあるため、プロジェクトフォルダの中に本体を置くと、フォルダを移動したり消したりした瞬間に、すべてのフックが壊れます。それを避けるための、意図的な分離です。</p>
+  <div class="note">
+    <span class="tag">つまり</span>
+    <p>このリポジトリを消しても、仕組みは動き続けます。逆に、仕組みを止めたいときはリポジトリではなく <code>uninstall.ps1</code> を実行します。</p>
+  </div>
+</section>
+
+<section>
+  <h2>あなたが手を動かす場面</h2>
+  <p>基本は何もしなくて構いません。手が要るのは、次の2つだけです。</p>
+  <ol class="steps">
+    <li><strong>セッション開始時に「未確認の知見があります」と出たとき。</strong>読んで選り分けるのは Claude 本体の仕事です。あなたは、Claude が「これは既存の記憶と食い違います」と聞いてきたときに答えるだけで済みます。</li>
+    <li><strong>その場で確実に記録を残したいとき。</strong><code>/learn</code> と打つと、いまの会話から直接、抽出と保存を行えます。Haiku を通さず本体が直接読むぶん、自動より判断の精度は高くなります。</li>
+  </ol>
+</section>
+</div>
+
+<div class="col">
+<footer>
+  <p>この図は仕組みの<strong>概要</strong>だけを扱っています。実測したコスト、設計上の判断とその理由、既知の不具合と対応状況は <code>docs/design.md</code> に、日々の運用手順は <code>docs/manual.md</code> にあります。内容は 2026-08-24 時点のものです。</p>
+</footer>
+</div>
+
+</div>

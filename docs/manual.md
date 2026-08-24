@@ -37,6 +37,26 @@
 この手順は Claude 本体が会話の中で自律的に行う想定。人間が直接
 `INBOX.md` を編集する必要はない。
 
+### セッション開始時に「メモリの棚卸しどきです」と出たら
+
+INBOX の通知とは別系統。**すでに `memory/` に入ったものを見直す**合図。
+そのプロジェクトのメモリが10件以上か、前回の棚卸しから30日以上経つと出る。
+
+| コマンド | 範囲 |
+|---|---|
+| `/memory-review` | 今のプロジェクトだけ。重複マージと陳腐化の除去 |
+| `/memory-review all` | 全プロジェクト横断。**昇格候補も出す** |
+
+横断のほうは、複数プロジェクトで成立する知識を `~/.claude/rules/` か
+スキルへ引き上げる。memory はプロジェクトごとに隔離されているため、
+**昇格しない限り他プロジェクトでは効かない。**
+
+インデックスの不整合（`MEMORY.md` のリンク切れ・孤児）だけは確認なしで
+直る。**それ以外はすべて提案止まりで、承認したものだけが適用される。**
+他プロジェクトの文脈を持たないまま削除・マージすると、知識が消えるため。
+
+判断基準は `~/.claude/rules/self-improve.md` の「横断昇格の基準」にある。
+
 ### `/learn` を手動で使う場面
 
 - アプリの強制終了などで `SessionEnd` が発火しなかったとき
@@ -63,31 +83,14 @@
 `no transcript on disk` は、中身のない短命セッションで毎回出るので
 気にしなくてよい（後者の事情は4節b）。
 
-`ERROR` が出たら4節を先に見る。既知の2パターンに当てはまらない
+`ERROR` が出たら4節を先に見る。既知のパターンに当てはまらない
 `ERROR` は新しい不具合なので、その日のログごと記録に残すこと。
 
-## 4. 既知の問題（2026-08-24 時点）
+## 4. 既知の問題（2026-08-25 時点）
 
 ### 未解決
 
-**(a) `read_hook_input` の JSON 破損 — 原因未特定**
-
-- 症状: `[ERROR] read_hook_input failed: Expecting ',' delimiter: line 1 column N`
-- 影響: **そのフック呼び出しが丸ごと無効になる。**`session_id` も
-  `transcript_path` も取れないため、処理を始める前に return する。
-  サイレントに落ちるので、ログを見ない限り気づけない。
-- 実測: 2026-08-24 に4回（15:48 / 16:35 / 16:48 に2回）。
-- 否定済みの仮説2本: cp932 の1文字混入 / 2文字ぶんのアラインメントずれ。
-  どちらも再現実験で否定した（design.md §15）。
-- 打った手: stdin をバイト列で読んで UTF-8 で明示デコードするよう変更した
-  （これは別の実バグで、修正の正しさは実測で確認済み）。加えて、失敗時に
-  生の入力を `~/.claude/hooks/logs/badinput-<時刻>-<スクリプト名>.bin` に
-  保存するようにした。
-- 状態: キャプチャを入れた 17:38 以降、実発生はゼロ。ただし発生頻度が
-  1日数回の散発なので、**短時間の無発生は直った証拠にならない。**
-  `badinput-*.bin` が1件出るまで判断を保留する。
-
-**(b) `SessionEnd` 経由の抽出が実質機能しない**
+**`SessionEnd` 経由の抽出が実質機能しない**
 
 - 症状: `[SKIP] session_end_learn: no transcript on disk`
 - 実測: 導入から5日間、この経路での抽出は0件。同メッセージは1日十数回出る。
@@ -98,7 +101,7 @@
   `SessionEnd` を出さない。
 - 回避: `SessionStart` の拾い直し（`session_start_catchup.py`）が前回までの
   トランスクリプトを見に行くため、実務上の抽出はそちらで成立している。
-  この経路を止めない限り、(b) は実害として顕在化しない。
+  この経路を止めない限り、実害としては顕在化しない。
 
 ### 解決済み（同じ症状を見たときのために残す）
 
@@ -109,8 +112,9 @@
 | 抽出が最大15分間まったく動かない | worker が異常終了してロックを解放せず、残ったロックが後続を止めていた | ロック保持者の PID の生存を確認し、死んでいれば回収する |
 | 要約が会話の続きを書き出す | プロンプトが「指示→データ」の並びで、末尾のログに引きずられていた | データを `<transcript>` で囲み、指示を後ろに置く形へ統一 |
 | 日本語を含む入力で `UnicodeDecodeError` | Windows の既定 cp932 で stdin を読んでいた | バイト列で読んで UTF-8 明示デコード |
+| フック入力が `Expecting ',' delimiter` で壊れる | 同上。cp932 は UTF-8 を「エラーにせず違う文字として」読むことがあり、長い入力ではアラインメントがずれて `,` や `"` が食われる | 同上。2026-08-25 に同一バイト列で再現し、読み方だけの違いで再現/解消することを実測（[design.md §16](design.md)） |
 
-経緯と実測値は [design.md](design.md) の §11〜§15 に残してある。
+経緯と実測値は [design.md](design.md) の §11〜§17 に残してある。
 
 ## 5. ファイル配置早見表
 
@@ -123,9 +127,12 @@
 | 圧縮前スナップショット | `~/.claude/snapshots/session-<id>-<timestamp>.md` |
 | 拾い直しの処理済み記録 | `~/.claude/learnings/<proj>/processed.json` |
 | 抽出の排他ロック | `~/.claude/learnings/<proj>/extract.lock` |
-| 壊れた入力の生バイト列（4節a） | `~/.claude/hooks/logs/badinput-<時刻>-<スクリプト名>.bin` |
+| 壊れた入力の生バイト列（保険。現在は既知の原因なし） | `~/.claude/hooks/logs/badinput-<時刻>-<スクリプト名>.bin` |
+| メモリ棚卸しの実行記録 | `~/.claude/learnings/memory-review-state.json` |
 | 昇格判断の基準 | `~/.claude/rules/self-improve.md` |
 | 手動昇格コマンド | `~/.claude/skills/learn/SKILL.md`（`/learn`） |
+| メモリ棚卸しコマンド | `~/.claude/skills/memory-review/SKILL.md`（`/memory-review`） |
+| メモリ走査スクリプト | `~/.claude/hooks/memory_scan.py`（LLM 不使用） |
 
 `<proj>` はトランスクリプトパスの親ディレクトリ名（Claude Code が
 採番するプロジェクトスラッグ）。このプロジェクトの場合は
@@ -140,6 +147,10 @@
 | `SessionStart` | `startup\|resume\|clear` | `session_start_catchup.py` | 180s | ○ |
 | `PostToolUse` | `Edit\|Write\|NotebookEdit` | `post_edit_log.py` | 15s | ○ |
 | `PreCompact` | — | `pre_compact_snapshot.py` | 120s | — |
+
+`memory_scan.py` はフックではない。`/memory-review` から呼ばれる走査
+スクリプトで、LLM を使わないため単体でも実行できる
+（`python ~/.claude/hooks/memory_scan.py`）。
 
 すべて Python 実行ファイル
 （`C:\Users\yanagawa\AppData\Local\Programs\Python\Python312\python.exe`）

@@ -25,10 +25,12 @@ Auto Memory 運用あり）向けに実装したもの。記事どおりには�
 │   ├── session_start_inbox.py       ← SessionStart: INBOX 未処理を通知
 │   ├── post_edit_log.py             ← PostToolUse: 編集ファイルを記録（LLM 不使用）
 │   ├── pre_compact_snapshot.py      ← PreCompact: 作業状態のスナップショット
+│   ├── memory_scan.py               ← メモリ棚卸しの走査（LLM 不使用）
 │   ├── logs/YYYY-MM-DD.log          ← 全フックの実行ログ
 │   └── logs/badinput-*.bin          ← 壊れた入力の生バイト列（未解決問題の調査用）
 ├── rules/self-improve.md            ← INBOX → memory/ 昇格の判断基準
 ├── skills/learn/SKILL.md            ← /learn コマンド（手動フォールバック）
+├── skills/memory-review/SKILL.md    ← /memory-review コマンド（棚卸しと昇格）
 └── learnings/<project-slug>/
     ├── INBOX.md                     ← 未処理の知見（1行1件）
     ├── YYYY-MM-DD-<sid8>.md         ← 抽出詳細（frontmatter 付き）
@@ -71,7 +73,7 @@ Auto Memory 運用あり）向けに実装したもの。記事どおりには�
 | 拾い直し（デスクトップアプリ） | ✅ 実測。2026-08-24 のログで INBOX への書き込みを複数回確認 |
 | **SessionEnd → 抽出（デスクトップアプリの長寿命セッション）** | ❌ **5日間で0件。**短命セッションにだけ発火しているという推論はあるが未確定。拾い直し経路で回避している |
 
-既知の問題（未解決2件・解決済み5件）は
+既知の問題（未解決1件・解決済み6件）は
 [docs/manual.md §4](docs/manual.md) にまとめてある。
 
 ## 導入手順

@@ -98,6 +98,9 @@ def test_memory_scan():
     assert len(ident) == 1, f"expected 1 identical group, got {len(ident)}"
     assert sorted(ident[0]["members"]) == ["projA/shared-fact.md", "projB/shared-fact.md"]
 
+    # `\b` がバックスペース文字として焼き込まれた実例があった（2026-08-25）
+    assert r["corrupted"] == [], f"健全なファイルを破損と誤検出: {r['corrupted']}"
+
     kinds = {(i["kind"], i["target"]) for i in r["index_issues"]}
     assert ("orphan", "lonely.md") in kinds, f"orphan not detected: {kinds}"
     assert ("broken_link", "gone.md") in kinds, f"broken_link not detected: {kinds}"
@@ -105,6 +108,28 @@ def test_memory_scan():
         "rules/ を指す [[name]] を不整合として誤検出している"
 
     print(f"[OK] memory_scan: {r['total']}件、完全重複1組、orphan/broken_link を検出")
+
+
+def test_memory_scan_control_chars():
+    """制御文字の混入を拾えること。改行・タブは誤検出しないこと。"""
+    import tempfile
+
+    from memory_scan import collect
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        # 実例と同じ形: パス中の \b がバックスペース文字になっている
+        _write_memory(root, "p1", "broken", "壊れたパス",
+                      "C:\\Claude\\Project\\yanagawa\x08ihinyoyaku を参照する。")
+        _write_memory(root, "p1", "clean", "健全", "改行\nとタブ\tは含んでよい。")
+        r = collect(root)
+
+    paths = {c["path"] for c in r["corrupted"]}
+    assert paths == {"p1/broken.md"}, f"検出結果が想定と違う: {r['corrupted']}"
+    found = r["corrupted"][0]["found"]
+    assert found[0]["char"] == "0x8", f"文字の記録が誤っている: {found}"
+
+    print("[OK] memory_scan 制御文字: 混入1件を検出、改行/タブは誤検出しない")
 
 
 def test_memory_scan_similarity():
@@ -144,5 +169,6 @@ if __name__ == "__main__":
     test_project_slug()
     test_guard()
     test_memory_scan()
+    test_memory_scan_control_chars()
     test_memory_scan_similarity()
     print("\nALL OFFLINE TESTS PASSED")

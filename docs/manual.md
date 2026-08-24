@@ -28,7 +28,7 @@
 
 1. 通知に書かれた `INBOX.md` のパスを読む
 2. 各行が指す詳細ファイル（`YYYY-MM-DD-<sid8>.md`）を読む
-3. [~/.claude/rules/self-improve.md](../../../.claude/rules/self-improve.md)
+3. `~/.claude/rules/self-improve.md`
    の基準で「昇格する／しない」を判断する
 4. 昇格するものは `memory/` の作法（frontmatter 付きファイル +
    `MEMORY.md` への1行ポインタ）で保存する
@@ -43,7 +43,7 @@
 - セッション全体の知見をその場で確実に確定させたいとき
 
 `/learn` は Haiku を経由せず、今の会話全体を Claude 本体が直接見て
-抽出・判断・保存まで行う（[SKILL.md](../../../.claude/skills/learn/SKILL.md)）。
+抽出・判断・保存まで行う（実体は `~/.claude/skills/learn/SKILL.md`）。
 自動抽出より判断の精度が高い分、明示的に呼ぶ必要がある。
 
 ## 3. ログの読み方

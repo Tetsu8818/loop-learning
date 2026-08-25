@@ -164,6 +164,39 @@ def test_memory_scan_similarity():
     print(f"[OK] memory_scan 類似判定: 1組を検出、根拠語 {' '.join(hit['terms'][:4])}")
 
 
+def test_memory_scan_project_filter():
+    """--project で絞っても「希少語」の意味が変わらないこと。
+
+    絞り込み時に母集団まで絞ると、2件しかないプロジェクトでは frontmatter の
+    定型語（how / why / user）が「希少語」になり誤検出する（2026-08-25 実測）。
+    """
+    import tempfile
+
+    from memory_scan import collect
+
+    common = "作業 手順 確認 実測 設定 記録 対応 内容 結果 状態"
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        # 対象プロジェクトの2件は、頻出語しか共有していない
+        _write_memory(root, "target", "a", "ひとつめ", f"{common} 固有語A")
+        _write_memory(root, "target", "b", "ふたつめ", f"{common} 固有語B")
+        # 母集団を作る他プロジェクト。common を全員が持つので頻出語になる
+        for i in range(8):
+            _write_memory(root, "other", f"n{i}", f"その他{i}", f"{common} 別語{i}")
+
+        scoped = collect(root, only="target")
+        whole = collect(root)
+
+    assert scoped["total"] == 2, f"絞り込みが効いていない: {scoped['total']}"
+    assert scoped["similar_pairs"] == [], \
+        f"頻出語だけの2件を「近い」と誤検出した: {scoped['similar_pairs']}"
+    assert {m["project"] for m in scoped["memories"]} == {"target"}
+    assert whole["total"] == 10, f"全体走査が壊れている: {whole['total']}"
+
+    print("[OK] memory_scan 絞り込み: 母集団を保ったまま報告だけを絞れている")
+
+
 if __name__ == "__main__":
     test_build_digest()
     test_project_slug()
@@ -171,4 +204,5 @@ if __name__ == "__main__":
     test_memory_scan()
     test_memory_scan_control_chars()
     test_memory_scan_similarity()
+    test_memory_scan_project_filter()
     print("\nALL OFFLINE TESTS PASSED")

@@ -197,6 +197,32 @@ def test_memory_scan_project_filter():
     print("[OK] memory_scan 絞り込み: 母集団を保ったまま報告だけを絞れている")
 
 
+def test_memory_scan_stdout_encoding():
+    """PYTHONIOENCODING が無くても標準出力で落ちないこと。
+
+    この PC の既定は cp932 で、メモリの description に含まれる `—`（em dash）を
+    書けずに UnicodeEncodeError で落ちていた（2026-08-25 実測）。テストのとき
+    だけ環境変数を付けていたため、長く見えていなかった。実プロセスで確かめる。
+    """
+    import subprocess
+
+    script = HOOKS_DIR / "memory_scan.py"
+    env = {k: v for k, v in os.environ.items() if k not in ("PYTHONIOENCODING", "PYTHONUTF8")}
+
+    for args in ([], ["--json"]):
+        p = subprocess.run([sys.executable, str(script), *args],
+                           capture_output=True, env=env)
+        assert p.returncode == 0, (
+            f"{args or ['(引数なし)']} で失敗した: "
+            f"{p.stderr.decode('utf-8', errors='replace')[-400:]}"
+        )
+        assert p.stdout, f"{args} の出力が空"
+        # 出力そのものが UTF-8 として読めること
+        p.stdout.decode("utf-8")
+
+    print("[OK] memory_scan 出力encoding: 環境変数なしで2形式とも正常終了")
+
+
 if __name__ == "__main__":
     test_build_digest()
     test_project_slug()
@@ -205,4 +231,5 @@ if __name__ == "__main__":
     test_memory_scan_control_chars()
     test_memory_scan_similarity()
     test_memory_scan_project_filter()
+    test_memory_scan_stdout_encoding()
     print("\nALL OFFLINE TESTS PASSED")

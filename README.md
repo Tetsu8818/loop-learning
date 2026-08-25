@@ -7,10 +7,16 @@
 Auto Memory 運用あり）向けに実装したもの。記事どおりには動かない箇所が
 あったため変更している。差分と理由は [docs/design.md](docs/design.md) 参照。
 
-**実体は `~/.claude/` 配下に置いてある。**このプロジェクトディレクトリ
-（`C:\Claude\Project\yanagawa\loop-learning\`）には設計ドキュメントと
-オフラインテストだけを置く。フックのパスがプロジェクトの移動・削除で
-壊れないようにするための意図的な分離。
+**正本は `~/.claude/` 配下に置いてある。**フックのパスがプロジェクトの
+移動・削除で壊れないようにするための意図的な分離で、設定ファイルは
+常に絶対パスで `~/.claude/hooks/...` を指す。
+
+このプロジェクトディレクトリ（`C:\Claude\Project\yanagawa\loop-learning\`）
+には設計ドキュメント・オフラインテストに加えて、**他PCへ移植するための
+配布用コピー**を `payload/` として置く。`payload/` は正本の
+スナップショットであり、hooks 等を改修したら
+`powershell -File sync_payload.ps1` で最新化してからコミットすること
+（正本 → payload の一方向コピー）。
 
 ## 構成
 
@@ -37,6 +43,15 @@ Auto Memory 運用あり）向けに実装したもの。記事どおりには�
     ├── YYYY-MM-DD-<sid8>.md         ← 抽出詳細（frontmatter 付き）
     ├── processed.json               ← 抽出済みセッション ID（二重処理の防止）
     └── edited-files.jsonl           ← 編集ファイルのログ
+
+C:\Claude\Project\yanagawa\loop-learning\    （このリポジトリ）
+├── payload/                         ← 移植用の配布コピー（正本は ~/.claude/ 側）
+│   ├── hooks/*.py                   ← 上記 hooks/ と同一内容（sync_payload.ps1 で同期）
+│   ├── rules/self-improve.md
+│   └── skills/{learn,memory-review}/SKILL.md
+├── sync_payload.ps1                 ← 正本 → payload/ の同期（改修後、コミット前に実行）
+├── install.ps1                      ← payload/ → 他PCの ~/.claude/ への配置
+└── uninstall.ps1                    ← このPC上の自己改善システムを削除
 ```
 
 ## 動作の流れ
@@ -78,10 +93,23 @@ Auto Memory 運用あり）向けに実装したもの。記事どおりには�
 
 ## 導入手順
 
+### 他PC（このシステムを既に使っている環境から移植する場合）
+
 1. CLI をインストール: `irm https://claude.ai/install.ps1 | iex`
 2. ログイン: `claude /login`（ブラウザで Pro/Max アカウントを承認）
 3. 疎通確認: `claude --version` / `claude -p "ping" --model claude-haiku-4-5-20251001`
-4. `~/.claude/hooks/` に7本のスクリプトを配置（このリポジトリの設計に基づく）
+4. Python 3.12 系を導入し、PATH に通す（`python --version` で確認）
+5. このリポジトリを移植先 PC に用意する（SVN checkout など）
+6. `powershell -File install.ps1` を実行 — `payload/` の内容を
+   `~/.claude/` に配置し、`settings.json` の `hooks` ブロックへ
+   5エントリを追記する（バックアップは自動で
+   `settings.json.bak-<timestamp>` に取る。再実行しても二重追加されない）
+7. 新規セッションを開いて動作確認（`~/.claude/hooks/logs/` にログが出るか）
+
+### 一から作る場合（元記事どおりに自分で組む場合）
+
+1〜3 は上と同じ。
+4. `~/.claude/hooks/` に8本のスクリプトを配置（このリポジトリの設計に基づく）
 5. `~/.claude/settings.json` をバックアップしてから `hooks` ブロックを追記
 6. 新規セッションを開いて動作確認
 

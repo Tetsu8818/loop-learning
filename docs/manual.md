@@ -130,13 +130,17 @@ INBOX の通知とは別系統。**すでに `memory/` に入ったものを見�
 | 編集ファイルログ | `~/.claude/learnings/<proj>/edited-files.jsonl` |
 | 圧縮前スナップショット | `~/.claude/snapshots/session-<id>-<timestamp>.md` |
 | 拾い直しの処理済み記録 | `~/.claude/learnings/<proj>/processed.json` |
-| 抽出の排他ロック | `~/.claude/learnings/<proj>/extract.lock` |
+| 抽出の排他ロック（**全体で1つ**） | `~/.claude/learnings/extract.lock` |
 | 壊れた入力の生バイト列（保険。現在は既知の原因なし） | `~/.claude/hooks/logs/badinput-<時刻>-<スクリプト名>.bin` |
 | メモリ棚卸しの実行記録 | `~/.claude/learnings/memory-review-state.json` |
 | 昇格判断の基準 | `~/.claude/rules/self-improve.md` |
 | 手動昇格コマンド | `~/.claude/skills/learn/SKILL.md`（`/learn`） |
 | メモリ棚卸しコマンド | `~/.claude/skills/memory-review/SKILL.md`（`/memory-review`） |
 | メモリ走査スクリプト | `~/.claude/hooks/memory_scan.py`（LLM 不使用） |
+
+ロックがプロジェクト別でないのは、競合する相手が `~/.claude.json` という
+グローバルな資源だから。中身は「pid 取得時刻」の1行で、保持者が死んでいれば
+次の取得時に回収される（4節の解決済み表）。
 
 `<proj>` はトランスクリプトパスの親ディレクトリ名（Claude Code が
 採番するプロジェクトスラッグ）。このプロジェクトの場合は

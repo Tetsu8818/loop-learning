@@ -31,11 +31,11 @@ Auto Memory 運用あり）向けに実装したもの。記事どおりには�
 ├── rules/self-improve.md            ← INBOX → memory/ 昇格の判断基準
 ├── skills/learn/SKILL.md            ← /learn コマンド（手動フォールバック）
 ├── skills/memory-review/SKILL.md    ← /memory-review コマンド（棚卸しと昇格）
+├── learnings/extract.lock           ← 抽出の排他ロック（プロジェクト別ではなく全体で1つ）
 └── learnings/<project-slug>/
     ├── INBOX.md                     ← 未処理の知見（1行1件）
     ├── YYYY-MM-DD-<sid8>.md         ← 抽出詳細（frontmatter 付き）
     ├── processed.json               ← 抽出済みセッション ID（二重処理の防止）
-    ├── extract.lock                  ← 抽出の排他ロック（同時実行の防止）
     └── edited-files.jsonl           ← 編集ファイルのログ
 ```
 

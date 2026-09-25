@@ -38,13 +38,15 @@ Auto Memory 運用あり）向けに実装したもの。記事どおりには�
 ├── skills/learn/SKILL.md            ← /learn コマンド（手動フォールバック）
 ├── skills/memory-review/SKILL.md    ← /memory-review コマンド（棚卸しと昇格）
 ├── learnings/extract.lock           ← 抽出の排他ロック（プロジェクト別ではなく全体で1つ）
+├── learnings/installed-at           ← 導入日時。拾い直しはこれより古いセッションを対象にしない
 └── learnings/<project-slug>/
     ├── INBOX.md                     ← 未処理の知見（1行1件）
     ├── YYYY-MM-DD-<sid8>.md         ← 抽出詳細（frontmatter 付き）
     ├── processed.json               ← 抽出済みセッション ID（二重処理の防止）
     └── edited-files.jsonl           ← 編集ファイルのログ
 
-C:\Claude\Project\yanagawa\loop-learning\    （このリポジトリ）
+C:\Claude\Project\yanagawa\loop-learning\    （このリポジトリ。SVN と git の二重管理 — CLAUDE.md 参照）
+├── CLAUDE.md                        ← このリポジトリで作業する Claude 向けの前提
 ├── payload/                         ← 移植用の配布コピー（正本は ~/.claude/ 側）
 │   ├── hooks/*.py                   ← 上記 hooks/ と同一内容（sync_payload.ps1 で同期）
 │   ├── rules/self-improve.md
@@ -58,9 +60,9 @@ C:\Claude\Project\yanagawa\loop-learning\    （このリポジトリ）
 
 抽出の入口は2つある。**どちらか一方でも通れば知見は積まれる。**
 
-1a. **セッション終了時** — `SessionEnd` フックが発火。トランスクリプトを
-   ダイジェスト化し、Haiku（`--safe-mode` で子プロセス側のフックを無効化
-   した状態で起動）に知見抽出させ、`learnings/<proj>/INBOX.md` に積む
+1a. **セッション終了時** — `SessionEnd` フックが発火し、**切り離した別プロセス**に
+   抽出させる。worker はトランスクリプトをダイジェスト化し、Haiku（`--safe-mode` で
+   子プロセス側のフックを無効化した状態で起動）に知見抽出させ、`learnings/<proj>/INBOX.md` に積む
 
 1b. **次回セッション開始時（拾い直し）** — `SessionStart` で
    `session_start_catchup.py` が、このプロジェクトの未処理トランスクリプトを
@@ -77,19 +79,24 @@ C:\Claude\Project\yanagawa\loop-learning\    （このリポジトリ）
 **なぜ入口が2つあるか。**1a だけでは、導入から5日間で実運用の抽出が0件だった。
 詳細は [docs/design.md](docs/design.md) の8節。
 
-## 検証状況（2026-08-24 時点）
+## 運用実績と検証状況（2026-09-18 時点）
 
-| 経路 | 状態 |
+導入（2026-08-20）から約1か月のログの集計:
+
+| 経路 | 実績 |
 |---|---|
-| 実トランスクリプトからの抽出（プロンプト含む） | ✅ 実測。会話途中で終わる記録でも箇条書き3件を正しく抽出 |
-| SessionEnd → 抽出（実セッション、CLI） | ✅ 実測。有効な `transcript_path` が渡る |
-| SessionStart → 拾い直し → INBOX（実セッション、CLI） | ✅ 実測。親 CLI 終了の25秒後に worker が完走 |
-| 二重処理の防止 | ✅ 実測。`processed.json` により次の対象へ進む |
-| 拾い直し（デスクトップアプリ） | ✅ 実測。2026-08-24 のログで INBOX への書き込みを複数回確認 |
-| **SessionEnd → 抽出（デスクトップアプリの長寿命セッション）** | ❌ **5日間で0件。**短命セッションにだけ発火しているという推論はあるが未確定。拾い直し経路で回避している |
+| 拾い直し（catchup）による抽出 | **79件**書き込み / 91回起動（残りは NONE・短すぎ等） |
+| SessionEnd による抽出 | **0件**（テスト投入を除く）。9/18 に worker 方式へ変更し、実験中（[design.md §18](docs/design.md)） |
+| PreCompact スナップショット | 25件 / 失敗3件（8月の予算超過。修正済み） |
 
-既知の問題（未解決1件・解決済み6件）は
-[docs/manual.md §4](docs/manual.md) にまとめてある。
+| 検証項目 | 状態 |
+|---|---|
+| オフラインテスト（`tests/run_offline.py`） | ✅ 10件通過（2026-09-18） |
+| SessionEnd の worker 方式（手動発火） | ✅ フックは即終了、worker が32秒で書き込み・ロック解放、再送は処理済みとして SKIP（2026-09-18） |
+| PreCompact のロック待ち | ✅ ロック保持中は CLI を呼ばずに SKIP（2026-09-18） |
+| SessionEnd の worker 方式（デスクトップアプリの実セッション） | ⏳ **未確認。**10/02 頃にログで判定する |
+
+既知の問題は [docs/manual.md §4](docs/manual.md) にまとめてある。
 
 ## 導入手順
 
@@ -121,8 +128,9 @@ Haiku 呼び出しは**実測 $0.04〜$0.10/回**（`--max-budget-usd 0.15` で�
 固定費が約 $0.023 あるため、会話が短くても $0.04 は下回らない。測り方と
 内訳は [docs/design.md §6](docs/design.md)。
 呼び出しが起きるのは **SessionEnd で1回、SessionStart の拾い直しで最大1回**。
-拾い直しは1起動あたり1本までで、更新から30分未満のものと7日より古いものは
-対象外にしてある（導入時に過去の全セッションをさかのぼらないため）。
+拾い直しは1起動あたり1本までで、更新から30分未満のもの・30日より古いもの・
+導入日時（`learnings/installed-at`）より前のものは対象外にしてある
+（導入時に過去の全セッションをさかのぼって課金しないため）。
 PostToolUse は LLM を使わないのでゼロ。サブスク認証時にこれが従量課金か
 契約枠消費かは環境依存のため個別に確認すること。
 
@@ -141,6 +149,6 @@ powershell -File uninstall.ps1
 python tests/run_offline.py
 ```
 
-`claude` CLI を呼ばずに、トランスクリプトのパーサと再帰防止ガードだけを
-検証する。fixture は `tests/fixtures/` に実セッションのトランスクリプトを
-1件置いてある。
+`claude` CLI を呼ばずに、トランスクリプトのパーサ・再帰防止ガード・
+メモリ走査（`memory_scan.py`）・拾い直しの対象選定・CLI の所在解決を検証する。
+fixture は `tests/fixtures/` に実セッションのトランスクリプトを1件置いてある。

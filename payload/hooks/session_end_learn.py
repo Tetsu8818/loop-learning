@@ -14,12 +14,23 @@
     SessionEnd が届いた実績がないため、session_start_catchup.py が
     次回セッション開始時に未処理分を拾い直す。抽出の実体は lib_extract.py に
     あり、両者で共有している。
+  - 抽出は切り離した worker で行う（2026-09-18 から）。フック内で Haiku を
+    最大120秒同期で呼ぶと、親の終了に道連れにされうる（catchup で実測済みの現象）。
+    導入から1か月、この経路の抽出成功は0件だった。worker 化して効くかを
+    実験中で、判定基準は docs/design.md §18。
 """
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from lib_extract import acquire_lock, extract_and_store, mark_processed, release_lock  # noqa: E402
+from lib_extract import (  # noqa: E402
+    acquire_lock,
+    load_processed,
+    mark_processed,
+    release_lock,
+    run_worker,
+    spawn_detached_worker,
+)
 from lib_transcript import (  # noqa: E402
     LEARNINGS_DIR,
     is_child_invocation,
@@ -33,6 +44,9 @@ def main() -> int:
     if is_child_invocation():
         log("SKIP", "session_end_learn: child invocation guard triggered")
         return 0
+
+    if len(sys.argv) >= 3 and sys.argv[1] == "--worker":
+        return run_worker(Path(sys.argv[2]), "session_end", "session_end")
 
     hook_input = read_hook_input()
     transcript_path = hook_input.get("transcript_path", "")
@@ -56,11 +70,20 @@ def main() -> int:
         return 0
 
     try:
+        target = Path(transcript_path)
         proj_dir = LEARNINGS_DIR / project_slug_from_transcript(transcript_path)
-        extract_and_store(transcript_path, session_id, reason, "session_end")
-        mark_processed(proj_dir, session_id)
-    finally:
+        if target.stem in load_processed(proj_dir):
+            release_lock()
+            log("SKIP", f"session_end_learn: 処理済み。session={session_id} reason={reason}")
+            return 0
+        # claim してから起動する（catchup と同じ順序。二重処理と二重課金を防ぐ）。
+        mark_processed(proj_dir, target.stem)
+        log("INFO", f"session_end: dispatched {target.name} reason={reason}")
+        spawn_detached_worker(Path(__file__), target)
+    except Exception:
         release_lock()
+        raise
+    # 正常に起動できたら、解放は worker の責任（run_worker の finally）。
     return 0
 
 

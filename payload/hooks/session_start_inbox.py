@@ -9,6 +9,7 @@ SessionStart の stdout はそのまま文脈として Claude に渡る。
 出すものが無ければ、何も出さずに静かに exit する。
 """
 import json
+import re
 import sys
 from datetime import date
 from pathlib import Path
@@ -23,6 +24,7 @@ from lib_transcript import (  # noqa: E402
 )
 
 MAX_ENTRIES_SHOWN = 5
+INBOX_DATE_RE = re.compile(r"^- \[(\d{4}-\d{2}-\d{2})\b")
 STATE_FILE = LEARNINGS_DIR / "memory-review-state.json"
 
 # 棚卸しを促す条件。いずれかを満たせば通知する。
@@ -71,8 +73,12 @@ def report_inbox(proj: str) -> bool:
         return False
 
     shown = lines[-MAX_ENTRIES_SHOWN:]
+    # 行は "- [YYYY-MM-DD sid8](file)" 形式（lib_extract.extract_and_store が書く）。
+    # 滞留が見えるよう最古の日付を出す。形式外の行は無視する。
+    dates = sorted(m.group(1) for l in lines if (m := INBOX_DATE_RE.match(l)))
+    oldest = f"、最古 {dates[0]}" if dates else ""
     print("【自己改善システム】前回までのセッションで抽出された未確認の知見があります。")
-    print(f"件数: {len(lines)}（うち直近{len(shown)}件を表示）")
+    print(f"件数: {len(lines)}{oldest}（うち直近{len(shown)}件を表示）")
     print(f"ファイル: {inbox_path}")
     for l in shown:
         print(l)

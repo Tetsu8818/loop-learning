@@ -58,6 +58,20 @@ foreach ($skill in @("learn", "memory-review")) {
     Write-Host "配置: skills\$skill\SKILL.md"
 }
 
+# 導入日時。拾い直し（session_start_catchup.py）はこれより古いトランスクリプトを
+# 対象にしない。導入時に過去の全セッションをさかのぼって課金するのを防ぐ。
+# 再実行で上書きすると、未処理のまま残っている期間が対象外になるので作るだけにする。
+$LearningsDir = Join-Path $ClaudeHome "learnings"
+$InstalledAt = Join-Path $LearningsDir "installed-at"
+New-Item -ItemType Directory -Force -Path $LearningsDir | Out-Null
+if (Test-Path $InstalledAt) {
+    Write-Host "導入日時は既存のまま: $((Get-Content $InstalledAt -Raw).Trim())"
+} else {
+    $stamp = (Get-Date).ToString("yyyy-MM-ddTHH:mm:sszzz")
+    [System.IO.File]::WriteAllText($InstalledAt, "$stamp`n", (New-Object System.Text.UTF8Encoding($false)))
+    Write-Host "導入日時を記録: $stamp"
+}
+
 # 2. settings.json のバックアップ
 $backupPath = "$SettingsPath.bak-$(Get-Date -Format yyyyMMddHHmmss)"
 Copy-Item -Path $SettingsPath -Destination $backupPath -Force

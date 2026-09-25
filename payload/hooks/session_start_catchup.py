@@ -13,10 +13,11 @@ SessionEnd が取りこぼした過去セッションのトランスクリプト
 安全弁:
   - 1回の起動で処理するのは最大1本。取りこぼしが溜まっていても一気に走らない
   - IDLE_SECONDS 以内に更新のあるファイルは「まだ書き込み中」とみなし対象外
-  - MAX_AGE_DAYS より古いものは対象外。導入時に過去の全セッションを
-    さかのぼって課金することを防ぐ
+  - MAX_AGE_DAYS より古いものは対象外
+  - learnings/installed-at（導入日時）より古いものは対象外。導入時に過去の全セッションを
+    さかのぼって課金することを防ぐ。ファイルが無ければこの条件は掛けない
   - processed.json に記録済みのものは対象外（SessionEnd と二重処理しない）
-  - 抽出できてもできても processed に記録する。失敗を毎回リトライしない
+  - 抽出できてもできなくても processed に記録する。失敗を毎回リトライしない
 
 このフックは stdout に何も出さない（文脈を汚さない）。抽出結果の通知は
 次回起動時に session_start_inbox.py が行う。
@@ -32,18 +33,19 @@ SessionEnd が取りこぼした過去セッションのトランスクリプト
   防ぐためで、代償として worker が異常終了するとその1本は再試行されない。
   その場合は ERROR としてログに残るので、握りつぶしにはならない。
 """
-import subprocess
 import sys
 import time
+from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 from lib_extract import (  # noqa: E402
     acquire_lock,
-    extract_and_store,
     load_processed,
     mark_processed,
     release_lock,
+    run_worker,
+    spawn_detached_worker,
 )
 from lib_transcript import (  # noqa: E402
     CLAUDE_HOME,
@@ -55,19 +57,39 @@ from lib_transcript import (  # noqa: E402
 )
 
 IDLE_SECONDS = 1800  # 30分。これ未満の更新があるものは進行中とみなす
-MAX_AGE_DAYS = 7
+# 7日だと、1週間以上開かなかったプロジェクトの知見が永久に拾われなかった。
+# 課金の遡りは INSTALLED_AT_FILE で止めるので、ここは取りこぼし防止を優先する。
+MAX_AGE_DAYS = 30
+INSTALLED_AT_FILE = "installed-at"
 
 
-def find_candidate(proj_slug: str, current_session_id: str) -> Path | None:
+def installed_at(learnings_dir: Path = LEARNINGS_DIR) -> float | None:
+    """導入日時（epoch 秒）。ファイルが無い・読めなければ None（フロアを掛けない）。"""
+    try:
+        text = (learnings_dir / INSTALLED_AT_FILE).read_text(encoding="utf-8").strip()
+        return datetime.fromisoformat(text).timestamp()
+    except (OSError, ValueError) as e:
+        if not isinstance(e, FileNotFoundError):
+            log("WARN", f"catchup: {INSTALLED_AT_FILE} を読めない ({e})、導入日の制限なしで続行")
+        return None
+
+
+def find_candidate(
+    proj_slug: str,
+    current_session_id: str,
+    claude_home: Path = CLAUDE_HOME,
+    learnings_dir: Path = LEARNINGS_DIR,
+) -> Path | None:
     """このプロジェクトで抽出対象にすべきトランスクリプトを1本選ぶ。
 
     条件を満たすもののうち、最後に更新されたもの（＝直近に終わったもの）を返す。
     """
-    proj_transcripts = CLAUDE_HOME / "projects" / proj_slug
+    proj_transcripts = claude_home / "projects" / proj_slug
     if not proj_transcripts.is_dir():
         return None
 
-    processed = load_processed(LEARNINGS_DIR / proj_slug)
+    processed = load_processed(learnings_dir / proj_slug)
+    floor = installed_at(learnings_dir)
     now = time.time()
     candidates = []
     for f in proj_transcripts.glob("*.jsonl"):
@@ -75,12 +97,15 @@ def find_candidate(proj_slug: str, current_session_id: str) -> Path | None:
         if sid == current_session_id or sid in processed:
             continue
         try:
-            age = now - f.stat().st_mtime
+            mtime = f.stat().st_mtime
         except OSError:
             continue
+        age = now - mtime
         if age < IDLE_SECONDS or age > MAX_AGE_DAYS * 86400:
             continue
-        candidates.append((f.stat().st_mtime, f))
+        if floor is not None and mtime < floor:
+            continue
+        candidates.append((mtime, f))
 
     if not candidates:
         return None
@@ -88,48 +113,12 @@ def find_candidate(proj_slug: str, current_session_id: str) -> Path | None:
     return candidates[-1][1]
 
 
-def spawn_worker(target: Path) -> None:
-    """抽出を行う worker を、このプロセスから切り離して起動する。
-
-    親（Claude Code のセッション）が終了しても生き残らせる必要があるため、
-    Windows の DETACHED_PROCESS を使う。標準入出力は捨てる。
-    """
-    flags = 0
-    for name in ("DETACHED_PROCESS", "CREATE_NEW_PROCESS_GROUP", "CREATE_NO_WINDOW"):
-        flags |= getattr(subprocess, name, 0)
-    subprocess.Popen(
-        [sys.executable, str(Path(__file__).resolve()), "--worker", str(target)],
-        stdin=subprocess.DEVNULL,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        close_fds=True,
-        creationflags=flags,
-    )
-
-
-def run_worker(target: Path) -> int:
-    """切り離されたプロセスとして実行される側。実際の抽出を行う。
-
-    ロックは呼び出し元のフックが取得済み。ここで必ず解放する。
-    """
-    try:
-        if not target.exists():
-            log("ERROR", f"catchup worker: target vanished: {target.name}")
-            return 0
-        ok = extract_and_store(str(target), target.stem, "catchup", "catchup")
-        if not ok:
-            log("INFO", f"catchup worker: nothing stored for {target.name}")
-        return 0
-    finally:
-        release_lock()
-
-
 def main() -> int:
     if is_child_invocation():
         return 0
 
     if len(sys.argv) >= 3 and sys.argv[1] == "--worker":
-        return run_worker(Path(sys.argv[2]))
+        return run_worker(Path(sys.argv[2]), "catchup", "catchup")
 
     hook_input = read_hook_input()
     transcript_path = hook_input.get("transcript_path", "")
@@ -153,7 +142,7 @@ def main() -> int:
         # find_candidate と競合して同じ対象を二重に処理しうる。
         mark_processed(LEARNINGS_DIR / proj_slug, target.stem)
         log("INFO", f"catchup: dispatched {target.name} in {proj_slug}")
-        spawn_worker(target)
+        spawn_detached_worker(Path(__file__), target)
     except Exception:
         # worker を起動できなかった場合、解放しないと LOCK_STALE_SECONDS の間
         # 抽出が止まる。

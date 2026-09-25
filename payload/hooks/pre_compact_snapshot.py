@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
+from lib_extract import acquire_lock, release_lock  # noqa: E402
 from lib_transcript import (  # noqa: E402
     CLAUDE_HOME,
     build_digest,
@@ -63,8 +64,16 @@ def main() -> int:
     if len(digest) < 200:
         return 0
 
-    prompt = SNAPSHOT_PROMPT_TEMPLATE.format(digest=digest)
-    ok, result = call_claude_cli(prompt, timeout=90)
+    # 抽出の worker と同じく claude.exe を起動し ~/.claude.json を書き換えるので、
+    # 同じロックで直列化する（design.md §11）。取れなければ今回は見送る。
+    if not acquire_lock():
+        log("SKIP", f"pre_compact_snapshot: 抽出が走っているため見送る。session={session_id}")
+        return 0
+    try:
+        prompt = SNAPSHOT_PROMPT_TEMPLATE.format(digest=digest)
+        ok, result = call_claude_cli(prompt, timeout=90)
+    finally:
+        release_lock()
     if not ok:
         log("ERROR", f"pre_compact_snapshot: CLI call failed: {result}. session={session_id}")
         return 0

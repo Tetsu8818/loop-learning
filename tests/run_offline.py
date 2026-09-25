@@ -223,6 +223,81 @@ def test_memory_scan_stdout_encoding():
     print("[OK] memory_scan 出力encoding: 環境変数なしで2形式とも正常終了")
 
 
+def test_candidate_floor():
+    """拾い直しの対象選定。導入日より古いもの・期間外・処理済みを外すこと。"""
+    import tempfile
+    import time
+
+    from session_start_catchup import MAX_AGE_DAYS, find_candidate
+
+    day = 86400
+    now = time.time()
+    with tempfile.TemporaryDirectory() as tmp:
+        home = Path(tmp) / "home"
+        learn = Path(tmp) / "learnings"
+        proj = home / "projects" / "p"
+        proj.mkdir(parents=True)
+        learn.mkdir()
+
+        def put(name, age_days):
+            f = proj / f"{name}.jsonl"
+            f.write_text("{}\n", encoding="utf-8")
+            t = now - age_days * day
+            os.utime(f, (t, t))
+
+        put("fresh", 0.001)             # 更新中（30分未満）→ 対象外
+        put("recent", 2)                # 対象
+        put("older", 20)                # 30日以内だが導入日より前 → フロア有りで対象外
+        put("ancient", MAX_AGE_DAYS + 1)  # 期間外
+
+        # フロア無し: 最新の "recent" が選ばれる
+        got = find_candidate("p", "", claude_home=home, learnings_dir=learn)
+        assert got is not None and got.stem == "recent", f"フロア無しで誤選定: {got}"
+
+        # recent を処理済みにすると、フロア無しでは older が次の候補
+        (learn / "p").mkdir()
+        (learn / "p" / "processed.json").write_text('["recent"]', encoding="utf-8")
+        got = find_candidate("p", "", claude_home=home, learnings_dir=learn)
+        assert got is not None and got.stem == "older", f"処理済みの除外が効いていない: {got}"
+
+        # 導入日を10日前にすると older（20日前）は対象外になり、候補なし
+        from datetime import datetime
+        floor_dt = datetime.fromtimestamp(now - 10 * day).astimezone()
+        (learn / "installed-at").write_text(floor_dt.isoformat() + "\n", encoding="utf-8")
+        got = find_candidate("p", "", claude_home=home, learnings_dir=learn)
+        assert got is None, f"導入日フロアが効いていない: {got} (floor={floor_dt.isoformat()})"
+
+    print(f"[OK] find_candidate: 更新中/期間外({MAX_AGE_DAYS}日超)/処理済み/導入日前を除外")
+
+
+def test_resolve_claude_exe():
+    """既定パスに CLI が無ければ PATH から探し、どちらにも無ければ None。"""
+    import tempfile
+
+    from lib_transcript import resolve_claude_exe
+
+    exe_name = "claude.exe" if os.name == "nt" else "claude"
+    saved_path = os.environ.get("PATH", "")
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            missing = Path(tmp) / "nowhere" / exe_name
+            os.environ["PATH"] = tmp
+            assert resolve_claude_exe(missing) is None, "どこにも無いのに見つかったことになっている"
+
+            fake = Path(tmp) / exe_name
+            fake.write_bytes(b"")
+            if os.name != "nt":
+                fake.chmod(0o755)
+            got = resolve_claude_exe(missing)
+            assert got is not None and got.name.lower() == exe_name, f"PATH 上の CLI を拾えない: {got}"
+
+            assert resolve_claude_exe(fake) == fake, "既定パスが優先されていない"
+    finally:
+        os.environ["PATH"] = saved_path
+
+    print("[OK] resolve_claude_exe: 既定パス優先 → PATH → None の順に解決")
+
+
 if __name__ == "__main__":
     test_build_digest()
     test_project_slug()
@@ -232,4 +307,6 @@ if __name__ == "__main__":
     test_memory_scan_similarity()
     test_memory_scan_project_filter()
     test_memory_scan_stdout_encoding()
+    test_candidate_floor()
+    test_resolve_claude_exe()
     print("\nALL OFFLINE TESTS PASSED")

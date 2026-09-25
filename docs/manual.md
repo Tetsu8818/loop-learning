@@ -11,7 +11,11 @@
   この処理待ちで操作がブロックされることはない。**実務上、抽出が成立して
   いるのはこの経路である**（理由は4節）。
 - **セッションを終えるたび**（`SessionEnd`）にも同じ抽出が走る設計だが、
-  デスクトップアプリの長寿命セッションではほぼ発火しない（4節）。
+  導入から1か月の実績は0件（4節）。2026-09-18 から切り離し worker 方式で実験中。
+- 拾い直しの対象は「更新から30分以上・30日以内・導入日時（`learnings/installed-at`）以降」の
+  未処理トランスクリプト。1週間以上開かなかったプロジェクトも、30日以内なら拾われる。
+- 3経路（SessionEnd・拾い直し・PreCompact）は `extract.lock` で直列化される。
+  抽出中にコンテキスト圧縮が起きると、その回のスナップショットは見送られる（`[SKIP]`）。
 - **編集のたび**（`PostToolUse`, Edit/Write/NotebookEdit）、触ったファイルパスが
   `~/.claude/learnings/<proj>/edited-files.jsonl` に記録される。現状これを
   読むコードはなく、監査ログとして溜まるだけ。
@@ -23,8 +27,9 @@
 
 ### セッション開始時に「未確認の知見があります」と出たら
 
-`SessionStart` フックが、そのプロジェクトの `INBOX.md` の未処理件数を
-会話冒頭に注入する（LLM は使わない、件数の機械通知）。これが出たら:
+`SessionStart` フックが、そのプロジェクトの `INBOX.md` の未処理件数と最古の日付を
+会話冒頭に注入する（LLM は使わない、件数の機械通知）。最古の日付が古いほど、
+昇格が追いついていない。これが出たら:
 
 1. 通知に書かれた `INBOX.md` のパスを読む
 2. 各行が指す詳細ファイル（`YYYY-MM-DD-<sid8>.md`）を読む
@@ -90,14 +95,17 @@ INBOX の通知とは別系統。**すでに `memory/` に入ったものを見�
 `ERROR` が出たら4節を先に見る。既知のパターンに当てはまらない
 `ERROR` は新しい不具合なので、その日のログごと記録に残すこと。
 
-## 4. 既知の問題（2026-08-25 時点）
+## 4. 既知の問題（2026-09-18 時点）
 
 ### 未解決
 
-**`SessionEnd` 経由の抽出が実質機能しない**
+**`SessionEnd` 経由の抽出が実質機能しない（worker 方式で実験中）**
 
 - 症状: `[SKIP] session_end_learn: no transcript on disk`
-- 実測: 導入から5日間、この経路での抽出は0件。同メッセージは1日十数回出る。
+- 実測: 導入から1か月（〜2026-09-18）、この経路での抽出は0件。同メッセージは350回、
+  `digest too short (0 chars)` が89回。
+- 2026-09-18 から抽出を切り離し worker で行う形に変えた。**10/02 頃にログを見て判定する**
+  （`grep "session_end: wrote"`。0件のままなら SessionEnd フックを廃止する。[design.md §18](design.md)）。
 - 推論（**未確定**）: デスクトップアプリは短命なセッションを多数作っては
   捨てており、`SessionEnd` が発火しているのはそちら。中身が無いので
   トランスクリプトファイル自体が生成されない。一方、実作業をしている
@@ -117,8 +125,10 @@ INBOX の通知とは別系統。**すでに `memory/` に入ったものを見�
 | 要約が会話の続きを書き出す | プロンプトが「指示→データ」の並びで、末尾のログに引きずられていた | データを `<transcript>` で囲み、指示を後ろに置く形へ統一 |
 | 日本語を含む入力で `UnicodeDecodeError` | Windows の既定 cp932 で stdin を読んでいた | バイト列で読んで UTF-8 明示デコード |
 | フック入力が `Expecting ',' delimiter` で壊れる | 同上。cp932 は UTF-8 を「エラーにせず違う文字として」読むことがあり、長い入力ではアラインメントがずれて `,` や `"` が食われる | 同上。2026-08-25 に同一バイト列で再現し、読み方だけの違いで再現/解消することを実測（[design.md §16](design.md)） |
+| `uninstall.ps1` 後に一部のフックと `/memory-review` が残る | 削除対象が初期の5本のまま、後から足した3本と `skills/memory-review` が漏れていた | 削除対象を `sync_payload.ps1` と同じ8本＋2スキルに揃えた（2026-09-18） |
+| 1週間以上開かなかったプロジェクトの知見が拾われない | 拾い直しの対象が「7日以内」だった | 30日に延ばし、課金の遡りは導入日時で止める（2026-09-18、[design.md §18](design.md)） |
 
-経緯と実測値は [design.md](design.md) の §11〜§17 に残してある。
+経緯と実測値は [design.md](design.md) の §11〜§18 に残してある。
 
 ## 5. ファイル配置早見表
 
@@ -131,6 +141,7 @@ INBOX の通知とは別系統。**すでに `memory/` に入ったものを見�
 | 圧縮前スナップショット | `~/.claude/snapshots/session-<id>-<timestamp>.md` |
 | 拾い直しの処理済み記録 | `~/.claude/learnings/<proj>/processed.json` |
 | 抽出の排他ロック（**全体で1つ**） | `~/.claude/learnings/extract.lock` |
+| 導入日時（拾い直しの下限） | `~/.claude/learnings/installed-at`（install.ps1 が作る。ISO 日時1行） |
 | 壊れた入力の生バイト列（保険。現在は既知の原因なし） | `~/.claude/hooks/logs/badinput-<時刻>-<スクリプト名>.bin` |
 | メモリ棚卸しの実行記録 | `~/.claude/learnings/memory-review-state.json` |
 | 昇格判断の基準 | `~/.claude/rules/self-improve.md` |
@@ -186,6 +197,6 @@ python tests/run_offline.py    # claude CLI を呼ばないオフラインテス
 ```
 
 ```powershell
-powershell -File uninstall.ps1              # hooks/rules/skill を削除、learnings/snapshots は残す
+powershell -File uninstall.ps1              # hooks 8本/rules/skill 2本を削除、learnings/snapshots は残す
 powershell -File uninstall.ps1 -RemoveData  # learnings/snapshots も削除
 ```

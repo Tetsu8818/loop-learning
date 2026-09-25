@@ -1,18 +1,14 @@
 ---
 name: memory-review
 description: メモリの棚卸しと昇格。溜まった memory/ を見直して重複をマージし、陳腐化を落とし、複数プロジェクトで成立する知識を rules/ や skill へ昇格させる。user が /memory-review を実行したとき、または「メモリを整理して」「メモリが溜まってきた」「共通するものを他プロジェクトでも使えるようにして」と頼まれたときに使う。セッション開始時に棚卸しの通知が出た場合もこれを使う。
-user_invocable: true
-triggers:
-  - /memory-review
-  - メモリを整理して
-  - メモリの棚卸しをして
+when_to_use: 「メモリを整理して」「メモリの棚卸しをして」と頼まれたとき
 argument-hint: "[all] — 省略で今のプロジェクトのみ、all で全プロジェクト横断"
 ---
 
 # /memory-review — メモリの棚卸しと昇格
 
-**前提として読むもの:** `~/.claude/rules/self-improve.md` の「横断昇格の基準」。
-どこへ昇格させるかの判断はそこが正本。
+**どこへ昇格させるかの判断は、下の「昇格先の決め方」節が正本。**
+INBOX の扱いは `~/.claude/rules/self-improve.md`。
 
 ## 引数
 
@@ -44,9 +40,19 @@ argument-hint: "[all] — 省略で今のプロジェクトのみ、all で全�
 
 ### 手順1 — 素材を集める
 
+```bash
+# Git Bash（Bash ツール）
+python ~/.claude/hooks/memory_scan.py --json
 ```
-python C:\Users\yanagawa\.claude\hooks\memory_scan.py --json
+
+```powershell
+# PowerShell
+python "$env:USERPROFILE\.claude\hooks\memory_scan.py" --json
 ```
+
+Git Bash にバックスラッシュ区切りの Windows パスを渡すと区切りが消えて
+`can't open file` になる（2026-09-13 実測）。`python` が PATH に無い PC では
+フルパスで呼ぶ（project-profiles の common-pc-env.md）。
 
 LLM を使わない走査スクリプト。完全重複・近いペア・インデックスの不整合・
 肥大・経過日数を出す。**判断はしていない。素材でしかない。**
@@ -109,6 +115,18 @@ LLM を使わない走査スクリプト。完全重複・近いペア・イン�
 
 ---
 
+## 昇格先の決め方
+
+memory はプロジェクトごとに隔離され、昇格しない限り他プロジェクトでは効かない。行き先は次で決める。
+
+| 条件 | 行き先 |
+|---|---|
+| 2 プロジェクト以上で成立する**環境の制約・user の好み**で、短く書ける | `~/.claude/rules/<topic>.md`（毎セッション全文読込。判断の前提だけ。手順は書かない） |
+| 2 プロジェクト以上で使う**手順・技法**で、長い | `~/.claude/skills/<name>/SKILL.md`（必要時のみ読込） |
+| 1 プロジェクト限定 | `memory/` に据え置き |
+
+---
+
 ## 守ること
 
 **完全重複ファイルを自動で削除しない。**memory はプロジェクト単位で隔離されて
@@ -129,8 +147,8 @@ LLM を使わない走査スクリプト。完全重複・近いペア・イン�
 wc -c ~/.claude/CLAUDE.md ~/.claude/rules/*.md
 ```
 
-（2026-08-25 時点で 14,955B。**余裕は 45B しかない。**次に足すなら、
-まず既存を削るところから始める。）
+（数値をここに固定で書かない。前回「余裕 45B」と書いて3週間で陳腐化し、
+気づかず上限を超えていた。**足す前に必ず実測する。**）
 
 **横断レビューは他プロジェクトの文脈を持たない。**`RETIRE` と `MERGE` の
 誤りは知識の消失に直結する。迷ったら `KEEP` にして user に聞く。

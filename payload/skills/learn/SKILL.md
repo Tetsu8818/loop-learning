@@ -1,11 +1,7 @@
 ---
 name: learn
 description: Manually extract learnings from the current session and promote them into project memory. Use when the user runs /learn, or asks to "save what we learned", "覚えておいて" for the whole session (not a single fact), or before ending a session where SessionEnd hooks might not fire (app force-quit, crash risk). This is the manual fallback for the automatic SessionEnd hook — see ~/.claude/rules/self-improve.md for the promotion criteria this skill follows.
-user_invocable: true
-triggers:
-  - /learn
-  - 今回学んだことを保存して
-  - セッションの知見を記録して
+when_to_use: 「今回学んだことを保存して」「セッションの知見を記録して」と頼まれたとき
 argument-hint: (no arguments)
 ---
 

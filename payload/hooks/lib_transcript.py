@@ -1,18 +1,22 @@
 """Claude Code 自己改善システム — 共有ライブラリ。
 
-session_end_learn.py / session_start_inbox.py / post_edit_log.py /
-pre_compact_snapshot.py から import される。単体では何もしない。
+lib_extract.py と、各フック（session_end_learn / session_start_catchup /
+session_start_inbox / post_edit_log / pre_compact_snapshot）から import される。
+単体では何もしない。
 """
 from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 import time
 from pathlib import Path
 
 CLAUDE_HOME = Path(os.environ.get("CLAUDE_CONFIG_DIR") or (Path.home() / ".claude"))
+# 公式ネイティブインストーラ（install.ps1）の配置先。npm で入れた PC などでは
+# ここに無いので、resolve_claude_exe() が PATH から探す。
 CLAUDE_EXE = Path(os.path.expandvars(r"%USERPROFILE%\.local\bin\claude.exe"))
 LOG_DIR = CLAUDE_HOME / "hooks" / "logs"
 LEARNINGS_DIR = CLAUDE_HOME / "learnings"
@@ -171,6 +175,14 @@ def build_digest(transcript_path: str, max_chars: int = MAX_DIGEST_CHARS) -> str
     return digest
 
 
+def resolve_claude_exe(default: Path = CLAUDE_EXE) -> Path | None:
+    """claude CLI の実体。既定の配置先に無ければ PATH から探す。見つからなければ None。"""
+    if default.exists():
+        return default
+    found = shutil.which("claude")
+    return Path(found) if found else None
+
+
 def call_claude_cli(
     prompt: str,
     model: str = HAIKU_MODEL,
@@ -191,14 +203,15 @@ def call_claude_cli(
       結果として作業中に黒い窓が前面に現れ、フォーカスを奪う。
       再現時にはコンソールホストが3プロセス生成された。
     """
-    if not CLAUDE_EXE.exists():
-        return False, f"claude.exe not found at {CLAUDE_EXE}"
+    exe = resolve_claude_exe()
+    if exe is None:
+        return False, f"claude CLI not found ({CLAUDE_EXE} にも PATH にも無い)"
 
     env = dict(os.environ)
     env[GUARD_ENV] = "1"
 
     args = [
-        str(CLAUDE_EXE),
+        str(exe),
         "--print",
         "--safe-mode",
         "--no-session-persistence",

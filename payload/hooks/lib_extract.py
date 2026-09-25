@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import sys
 import time
 from datetime import datetime, timezone
@@ -275,3 +276,39 @@ def extract_and_store(transcript_path: str, session_id: str, reason: str, tag: s
 
     log("OK", f"{tag}: wrote {detail_path.name}, appended INBOX. session={session_id}")
     return True
+
+
+def spawn_detached_worker(script: Path, target: Path) -> None:
+    """抽出を行う worker を、呼び出し元のプロセスから切り離して起動する。
+
+    親（Claude Code のセッション）が終了しても生き残らせる必要があるため、
+    Windows の DETACHED_PROCESS を使う。標準入出力は捨てる。
+    起動される script は `--worker <target>` を受け取り run_worker() を呼ぶこと。
+
+    呼び出し側の責務: acquire_lock() と mark_processed()（claim）を済ませてから呼ぶ。
+    ロックの解放は worker 側（run_worker の finally）。
+    """
+    flags = 0
+    for name in ("DETACHED_PROCESS", "CREATE_NEW_PROCESS_GROUP", "CREATE_NO_WINDOW"):
+        flags |= getattr(subprocess, name, 0)
+    subprocess.Popen(
+        [sys.executable, str(script.resolve()), "--worker", str(target)],
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        close_fds=True,
+        creationflags=flags,
+    )
+
+
+def run_worker(target: Path, tag: str, reason: str) -> int:
+    """切り離されたプロセスとして実行される側。実際の抽出を行い、必ずロックを解放する。"""
+    try:
+        if not target.exists():
+            log("ERROR", f"{tag} worker: target vanished: {target.name}")
+            return 0
+        if not extract_and_store(str(target), target.stem, reason, tag):
+            log("INFO", f"{tag} worker: nothing stored for {target.name}")
+        return 0
+    finally:
+        release_lock()

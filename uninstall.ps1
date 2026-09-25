@@ -3,9 +3,10 @@
     Claude Code 自己改善システムをアンインストールする。
 
 .DESCRIPTION
-    settings.json のバックアップから復元し、hooks/ 配下の自己改善用スクリプト、
-    rules/self-improve.md、skills/learn/ を削除する。
+    settings.json のバックアップから復元し、hooks/ 配下の自己改善用スクリプト8本、
+    rules/self-improve.md、skills/learn/ と skills/memory-review/ を削除する。
     learnings/ と snapshots/ は監査用に残す（-RemoveData を付けた場合のみ削除）。
+    削除対象は sync_payload.ps1 の同期対象と一致させること。
 
 .PARAMETER RemoveData
     ~/.claude/learnings と ~/.claude/snapshots も削除する。既定では残す。
@@ -17,6 +18,8 @@
 param(
     [switch]$RemoveData
 )
+
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 $ClaudeHome = Join-Path $env:USERPROFILE ".claude"
 $SettingsPath = Join-Path $ClaudeHome "settings.json"
@@ -37,10 +40,13 @@ if ($backups.Count -gt 0) {
 # 2. フックスクリプトを削除
 $hookFiles = @(
     "lib_transcript.py",
+    "lib_extract.py",
     "session_end_learn.py",
+    "session_start_catchup.py",
     "session_start_inbox.py",
     "post_edit_log.py",
-    "pre_compact_snapshot.py"
+    "pre_compact_snapshot.py",
+    "memory_scan.py"
 )
 foreach ($f in $hookFiles) {
     $p = Join-Path $ClaudeHome "hooks\$f"
@@ -56,10 +62,12 @@ if (Test-Path $rulePath) {
     Remove-Item -Path $rulePath -Force -Confirm:$false
     Write-Host "削除: $rulePath"
 }
-$skillPath = Join-Path $ClaudeHome "skills\learn"
-if (Test-Path $skillPath) {
-    Remove-Item -Path $skillPath -Recurse -Force -Confirm:$false
-    Write-Host "削除: $skillPath"
+foreach ($skill in @("learn", "memory-review")) {
+    $skillPath = Join-Path $ClaudeHome "skills\$skill"
+    if (Test-Path $skillPath) {
+        Remove-Item -Path $skillPath -Recurse -Force -Confirm:$false
+        Write-Host "削除: $skillPath"
+    }
 }
 
 # 4. データディレクトリ（既定では残す）

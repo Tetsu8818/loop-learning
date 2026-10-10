@@ -83,9 +83,8 @@ def report_inbox(proj: str) -> bool:
     for l in shown:
         print(l)
     print(
-        "内容を確認し、次回以降も使える一般的な知見だけを、既存の memory/ の作法"
-        "（frontmatter付きファイル + MEMORY.md への1行ポインタ）で保存してください。"
-        "保存し終えたら INBOX.md から該当行を削除してください。"
+        "処理するなら /learn。"
+        "user から依頼が無い限り、勝手に処理しないでください。"
     )
     log("OK", f"session_start_inbox: reported {len(lines)} pending entries. proj={proj}")
     return True

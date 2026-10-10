@@ -104,7 +104,7 @@ C:\Claude\Project\yanagawa\loop-learning\    （このリポジトリ。SVN と 
 
 1. CLI をインストール: `irm https://claude.ai/install.ps1 | iex`
 2. ログイン: `claude /login`（ブラウザで Pro/Max アカウントを承認）
-3. 疎通確認: `claude --version` / `claude -p "ping" --model claude-haiku-4-5-20251001`
+3. 疎通確認: `claude --version` / `claude -p "ping" --model claude-haiku-5-5`
 4. Python 3.12 系を導入し、PATH に通す（`python --version` で確認）
 5. このリポジトリを移植先 PC に用意する（SVN checkout など）
 6. `powershell -File install.ps1` を実行 — `payload/` の内容を

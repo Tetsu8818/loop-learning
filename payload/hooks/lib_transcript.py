@@ -21,8 +21,14 @@ CLAUDE_EXE = Path(os.path.expandvars(r"%USERPROFILE%\.local\bin\claude.exe"))
 LOG_DIR = CLAUDE_HOME / "hooks" / "logs"
 LEARNINGS_DIR = CLAUDE_HOME / "learnings"
 GUARD_ENV = "CLAUDE_SELFIMPROVE_CHILD"
-HAIKU_MODEL = "claude-haiku-4-5-20251001"
+# 2026-10-10 に Haiku 4.5 から変更。エイリアス "haiku" ではなく固定 ID にしているのは、
+# この hook が呼ぶ ~/.local/bin/claude.exe がデスクトップ版より古く、エイリアスの
+# 解決先が版によって変わり得るため。
+HAIKU_MODEL = "claude-haiku-5-5"
 
+# 以下は Haiku 4.5 での実測値で、Haiku 5.5 では再測定待ち。Haiku 5.5 は単価が約 1/10
+# （入力 $0.10 / 出力 $0.50 per MTok）だが、同じ文章のトークン数が約 30% 増え、thinking が
+# 既定で有効なので、所要時間（timeout 60 秒）は改めて確かめる。
 # 実測コスト (2026-08-24, Haiku 4.5, --output-format json の total_cost_usd):
 #   digest  9,000文字 → $0.0406
 #   digest 18,000文字 → $0.0585

@@ -139,6 +139,6 @@ Write-Host "settings.json を更新しました。"
 
 Write-Host "=== 完了 ==="
 Write-Host "次に必要な手動確認:"
-Write-Host "  - claude --version / claude -p `"ping`" --model claude-haiku-4-5-20251001 で疎通確認"
+Write-Host "  - claude --version / claude -p `"ping`" --model claude-haiku-5-5 で疎通確認"
 Write-Host "  - 新規セッションを開き、hooks が正常に動くか確認（~/.claude/hooks/logs/ にログが出るか）"
 Write-Host "元の settings.json は $backupPath に残っています。問題があれば uninstall.ps1 で復元できます。"

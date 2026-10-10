@@ -129,6 +129,15 @@ def report_review(proj: str) -> bool:
 
 
 def main() -> int:
+    # この PC の標準出力は既定が cp932 で、Claude Code は hook の stdout を UTF-8 として
+    # 読むため、通知が文字化けして文脈に入っていた（2026-10-10 実測）。
+    # memory_scan.py と同じく、自分の出力は自分で UTF-8 に固定する。
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8")
+        except (AttributeError, ValueError):
+            pass  # reconfigure できないストリームではそのまま続ける
+
     hook_input = read_hook_input()
     # SessionStart には transcript_path が入っているので、そこから同じ規則で
     # プロジェクトディレクトリを特定する。

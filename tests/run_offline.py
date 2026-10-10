@@ -223,6 +223,43 @@ def test_memory_scan_stdout_encoding():
     print("[OK] memory_scan 出力encoding: 環境変数なしで2形式とも正常終了")
 
 
+def test_session_start_inbox_stdout_encoding():
+    """SessionStart の通知が UTF-8 で出ること。
+
+    Claude Code は hook の stdout を UTF-8 として読む。この PC の既定は cp932 のため、
+    通知が文字化けしたまま文脈に入っていた（2026-10-10 実測）。実プロセスで、
+    環境変数を付けずに確かめる。実データに依存しないよう CLAUDE_CONFIG_DIR を一時ディレクトリにする。
+    """
+    import json
+    import subprocess
+    import tempfile
+
+    proj = "C--test-proj"
+    with tempfile.TemporaryDirectory() as tmp:
+        home = Path(tmp)
+        inbox = home / "learnings" / proj / "INBOX.md"
+        inbox.parent.mkdir(parents=True)
+        inbox.write_text("- [2026-10-01 abcd1234](2026-10-01-abcd1234.md) — 日本語の知見\n",
+                         encoding="utf-8")
+        hook_input = json.dumps({
+            "session_id": "probe",
+            "transcript_path": str(home / "projects" / proj / "probe.jsonl"),
+            "source": "startup",
+        }).encode("utf-8")
+        env = {k: v for k, v in os.environ.items() if k not in ("PYTHONIOENCODING", "PYTHONUTF8")}
+        env["CLAUDE_CONFIG_DIR"] = str(home)
+        p = subprocess.run([sys.executable, str(HOOKS_DIR / "session_start_inbox.py")],
+                           input=hook_input, capture_output=True, env=env)
+
+    assert p.returncode == 0, f"失敗した: {p.stderr.decode('utf-8', errors='replace')[-400:]}"
+    try:
+        text = p.stdout.decode("utf-8")
+    except UnicodeDecodeError as e:
+        raise AssertionError(f"通知が UTF-8 で出ていない（{e.reason} at {e.start}）") from e
+    assert "自己改善システム" in text and "/learn" in text, f"通知の文面が想定と違う: {text[:200]!r}"
+    print("[OK] session_start_inbox 出力encoding: 環境変数なしで UTF-8 の通知を出す")
+
+
 def test_candidate_floor():
     """拾い直しの対象選定。導入日より古いもの・期間外・処理済みを外すこと。"""
     import tempfile
@@ -307,6 +344,7 @@ if __name__ == "__main__":
     test_memory_scan_similarity()
     test_memory_scan_project_filter()
     test_memory_scan_stdout_encoding()
+    test_session_start_inbox_stdout_encoding()
     test_candidate_floor()
     test_resolve_claude_exe()
     print("\nALL OFFLINE TESTS PASSED")

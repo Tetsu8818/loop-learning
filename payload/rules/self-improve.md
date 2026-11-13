@@ -2,7 +2,7 @@
 
 SessionEnd フック（`~/.claude/hooks/session_end_learn.py`）が Haiku でセッションの知見候補を
 抽出し `~/.claude/learnings/<proj>/INBOX.md` に積む。セッション開始時に `session_start_inbox.py`
-が未処理件数を通知する（LLM なし）。通知が出ていれば着手前に目を通す。
+が未処理件数を通知する（LLM なし）。通知が出ても自動では処理しない。user が /learn を実行したときに処理する。
 
 ## 位置づけ
 

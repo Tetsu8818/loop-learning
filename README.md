@@ -100,7 +100,7 @@ C:\Claude\Project\yanagawa\loop-learning\    （このリポジトリ。SVN と 
 
 | 検証項目 | 状態 |
 |---|---|
-| オフラインテスト（`tests/run_offline.py`） | ✅ 10件通過（2026-11-13） |
+| オフラインテスト（`tests/run_offline.py`） | ✅ 11件通過（2026-11-13） |
 | SessionEnd の worker 方式（手動発火） | ✅ フックは即終了、worker が32秒で書き込み・ロック解放、再送は処理済みとして SKIP（2026-09-18） |
 | PreCompact のロック待ち | ✅ ロック保持中は CLI を呼ばずに SKIP（2026-09-18） |
 | SessionEnd の worker 方式（デスクトップアプリの実セッション） | ⏳ worker の起動は 43 回を確認（09-19〜11-13）。書き込みは CLI 未ログインのため 0 件で、**判定は再ログイン後**（`tests.json` #6） |

@@ -28,7 +28,7 @@ memory/ へ昇格させるフック群）の設計・テスト・配布物。こ
 ## 実行・テスト
 
 ```bash
-python tests/run_offline.py        # claude CLI を呼ばない。10 件
+python tests/run_offline.py        # claude CLI を呼ばない。11 件
 ```
 
 ```powershell

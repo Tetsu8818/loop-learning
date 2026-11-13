@@ -83,9 +83,8 @@ def report_inbox(proj: str) -> bool:
     for l in shown:
         print(l)
     print(
-        "内容を確認し、次回以降も使える一般的な知見だけを、既存の memory/ の作法"
-        "（frontmatter付きファイル + MEMORY.md への1行ポインタ）で保存してください。"
-        "保存し終えたら INBOX.md から該当行を削除してください。"
+        "処理するなら /learn。"
+        "user から依頼が無い限り、勝手に処理しないでください。"
     )
     log("OK", f"session_start_inbox: reported {len(lines)} pending entries. proj={proj}")
     return True
@@ -130,9 +129,15 @@ def report_review(proj: str) -> bool:
 
 
 def main() -> int:
-    # この PC の既定は cp932。受け手の Claude Code は UTF-8 として読むので、
-    # 明示しないと日本語が文字化けして届く（2026-11-13 実測）。
-    sys.stdout.reconfigure(encoding="utf-8")
+    # この PC の標準出力は既定が cp932 で、Claude Code は hook の stdout を UTF-8 として
+    # 読むため、通知が文字化けして文脈に入っていた（2026-10-10 実測）。
+    # memory_scan.py と同じく、自分の出力は自分で UTF-8 に固定する。
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8")
+        except (AttributeError, ValueError):
+            pass  # reconfigure できないストリームではそのまま続ける
+
     hook_input = read_hook_input()
     # SessionStart には transcript_path が入っているので、そこから同じ規則で
     # プロジェクトディレクトリを特定する。

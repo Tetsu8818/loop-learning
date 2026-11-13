@@ -17,21 +17,21 @@
     {
       "id": 3,
       "name": "抽出の連続失敗を SessionStart の通知に出す（8 週間の停止に誰も気づけなかった）",
-      "status": "not_started",
+      "status": "passing",
       "verify": "オフラインテスト: CLI 失敗が続くログを与えると通知文が出て、成功が挟まると出ない",
       "source": "2026-11-13 点検（session_start_inbox.py は INBOX と棚卸ししか見ていない）"
     },
     {
       "id": 4,
       "name": "一時的な失敗（認証切れ・タイムアウト）は処理済みにせず、回数の上限つきで再試行できるようにする",
-      "status": "not_started",
+      "status": "passing",
       "verify": "オフラインテスト: CLI が失敗した対象を find_candidate が次回も返し、上限回数を超えたら返さない",
       "source": "2026-11-13 点検（design.md §10 の『claim 後に異常終了すると再試行されない』が、認証切れで 77 本に及んだ）"
     },
     {
       "id": 5,
       "name": "worker の CLI 呼び出しを、プロジェクトの settings.local.json を読まない形にする（不正な権限ルールで exit 1 が 13 件）",
-      "status": "not_started",
+      "status": "passing",
       "verify": "オフラインテスト: call_claude_cli が子プロセスに渡す作業フォルダまたは引数が、プロジェクトの設定を読まない指定になっている",
       "source": "2026-11-13 点検（実測: ログ 10-26・10-27・11-02・11-09。公式 CLI リファレンス: --safe-mode でも権限は通常どおり動く）"
     },
@@ -157,7 +157,7 @@
     {
       "id": 23,
       "name": "一時フォルダ由来のセッション（スラッグに AppData-Local-Temp や scratch-workspaces を含むもの）を抽出の対象から外す",
-      "status": "not_started",
+      "status": "passing",
       "verify": "オフラインテスト: 一時フォルダ由来のスラッグでは find_candidate が None を返し、learnings/ にフォルダが作られない",
       "source": "2026-11-13 点検（実測: learnings/ に該当フォルダ 2 件）"
     },
@@ -177,8 +177,8 @@
     }
   ],
   "total": 25,
-  "passing": 7,
+  "passing": 11,
   "failing": 0,
-  "not_started": 18,
+  "not_started": 14,
   "dropped": 0
 }

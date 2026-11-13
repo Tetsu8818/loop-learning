@@ -51,6 +51,7 @@ from lib_transcript import (  # noqa: E402
     CLAUDE_HOME,
     LEARNINGS_DIR,
     is_child_invocation,
+    is_ephemeral_slug,
     log,
     project_slug_from_transcript,
     read_hook_input,
@@ -84,6 +85,8 @@ def find_candidate(
 
     条件を満たすもののうち、最後に更新されたもの（＝直近に終わったもの）を返す。
     """
+    if is_ephemeral_slug(proj_slug):
+        return None
     proj_transcripts = claude_home / "projects" / proj_slug
     if not proj_transcripts.is_dir():
         return None

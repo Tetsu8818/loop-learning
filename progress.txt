@@ -29,3 +29,14 @@ Session 3 progress (2026-11-13):
 - Next: test #1（user が `claude /login`）。次に第 2 段（#3・#4・#5・#23）。user の決定待ちは #2・#7・#8・#9・#22
 - Note: モデル指定はエイリアス haiku。別 PC の CLI が古い場合は解決先を確かめる（lib_transcript.py のコメント）
 - test #11 を passing に（git は origin/master と一致、SVN は r318。どちらの作業ツリーも空であることを確認）
+
+Session 4 progress (2026-11-13):
+- 第 2 段を実装。test #3・#4・#5・#23 を passing に（オフラインテスト 15 件通過）
+- #3: 連続失敗の通知。実際のログで「連続失敗: 111 回（2026-10-10 から）」と出ることを確認
+- #4: CLI が失敗したセッションを processed から外してやり直す（3 回まで。認証切れは数えない。retries.json）
+- #5: CLI の作業フォルダを learnings/ に固定。不正な権限ルールのあるフォルダで、旧来の起動は権限エラー、修正後は出ないことを実機で確認（未ログインのため費用なし）
+- #23: 一時フォルダ由来のスラッグを拾い直しと SessionEnd の対象外に
+- 正本を変更: lib_transcript.py・lib_extract.py・session_start_inbox.py・session_start_catchup.py・session_end_learn.py。変更前は ~/.claude/backup/2026-11-13-stage2/
+- 経緯と数値は design.md §19
+- Next: test #1（user が `claude /login`）。ログイン後に、やり直しの経路で `wrote` が出ることを確かめる（未確認）。次に第 3 段（#17・#18・#20・#21）
+- Note: やり直しのテストは lib_extract.log を差し替える。差し替えないと本物のログに CLI call failed が書かれ、失敗通知の集計を汚す

@@ -335,6 +335,177 @@ def test_resolve_claude_exe():
     print("[OK] resolve_claude_exe: 既定パス優先 → PATH → None の順に解決")
 
 
+def test_failure_streak():
+    """抽出の連続失敗の通知（tests.json #3）。失敗が続くと出て、成功が挟まると出ない。"""
+    import contextlib
+    import io
+    import tempfile
+
+    from session_start_inbox import FAILURE_STREAK_THRESHOLD, failure_streak, report_failures
+
+    auth = ("exit 1: Failed to authenticate: OAuth session expired and could not be refreshed.")
+    fail = "{d}T10:00:0{i} [ERROR] catchup: CLI call failed: {r} session=s{i}"
+    with tempfile.TemporaryDirectory() as tmp:
+        logs = Path(tmp)
+
+        def write(day, lines):
+            (logs / f"{day}.log").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+        # 成功のあとに失敗が 2 日で 4 回続く
+        write("2026-09-18", ["2026-09-18T09:00:00 [OK] catchup: wrote a.md, appended INBOX. session=a",
+                             fail.format(d="2026-09-18", i=1, r=auth)])
+        write("2026-09-19", [fail.format(d="2026-09-19", i=i, r=auth) for i in (1, 2, 3)])
+        count, first, reason = failure_streak(logs)
+        assert (count, first) == (4, "2026-09-18"), f"連続失敗の数え方が違う: {count} {first}"
+        assert reason.startswith("exit 1: Failed to authenticate"), f"理由の切り出しが違う: {reason!r}"
+
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            shown = report_failures(logs)
+        assert shown and "4 回" in buf.getvalue() and "claude /login" in buf.getvalue(), \
+            f"通知文が想定と違う: {buf.getvalue()!r}"
+
+        # そのあとに成功が挟まると、以前の失敗は数えない
+        write("2026-09-20", ["2026-09-20T09:00:00 [INFO] catchup: no learnings extracted. session=b",
+                             fail.format(d="2026-09-20", i=1, r="claude CLI timed out after 120s.")])
+        count, _, _ = failure_streak(logs)
+        assert count == 1, f"成功より前の失敗まで数えている: {count}"
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            shown = report_failures(logs)
+        assert not shown and buf.getvalue() == "", "閾値未満なのに通知が出た"
+
+    print(f"[OK] failure_streak: {FAILURE_STREAK_THRESHOLD}回以上の連続失敗で通知、成功が挟まると出ない")
+
+
+def test_retry_after_cli_failure():
+    """CLI が失敗した対象のやり直し（tests.json #4）。
+
+    失敗した対象は次回も選ばれ、上限回数で打ち切る。認証切れは回数に数えない。
+    """
+    import json
+    import tempfile
+    import time
+
+    import lib_extract
+    from session_start_catchup import find_candidate
+
+    saved = (lib_extract.LEARNINGS_DIR, lib_extract.call_claude_cli, lib_extract.log)
+    with tempfile.TemporaryDirectory() as tmp:
+        home = Path(tmp) / "home"
+        learn = Path(tmp) / "learnings"
+        proj = home / "projects" / "p"
+        proj.mkdir(parents=True)
+        learn.mkdir()
+        target = proj / "sess.jsonl"
+        row = {"type": "user", "origin": {"kind": "human"}, "message": {"content": "あ" * 300}}
+        target.write_text(json.dumps(row, ensure_ascii=False) + "\n", encoding="utf-8")
+        two_days_ago = time.time() - 2 * 86400
+        os.utime(target, (two_days_ago, two_days_ago))
+
+        def attempt(reason):
+            """フック本体と同じ順序: 選ぶ → claim → worker。選ばれなければ False。"""
+            got = find_candidate("p", "", claude_home=home, learnings_dir=learn)
+            if got is None:
+                return False
+            lib_extract.mark_processed(learn / "p", got.stem)
+            lib_extract.call_claude_cli = lambda *a, **k: (False, reason)
+            lib_extract.run_worker(got, "catchup", "catchup")
+            return True
+
+        try:
+            lib_extract.LEARNINGS_DIR = learn
+            lib_extract.log = lambda *a, **k: None  # 本物のログに失敗行を書かない
+
+            # 認証切れは何度失敗しても対象に残り、回数も増えない
+            auth = "exit 1: Failed to authenticate: OAuth session expired and could not be refreshed."
+            for _ in range(lib_extract.MAX_RETRIES + 2):
+                assert attempt(auth), "認証切れで失敗した対象が次回の候補から外れた"
+            assert lib_extract.load_retries(learn / "p") == {}, "認証切れを回数に数えている"
+
+            # それ以外の失敗は上限回数まで選ばれ、その次は選ばれない
+            for n in range(1, lib_extract.MAX_RETRIES + 1):
+                assert attempt("claude CLI timed out after 120s"), f"{n} 回目の前に候補から外れた"
+            assert lib_extract.load_retries(learn / "p") == {"sess": lib_extract.MAX_RETRIES}
+            assert not attempt("claude CLI timed out after 120s"), "上限を超えても候補に残っている"
+        finally:
+            lib_extract.LEARNINGS_DIR, lib_extract.call_claude_cli, lib_extract.log = saved
+
+    print(f"[OK] 再試行: 失敗した対象を次回も選び、{lib_extract.MAX_RETRIES}回で打ち切る。認証切れは数えない")
+
+
+def test_cli_runs_outside_project():
+    """CLI をプロジェクトの外で起動すること（tests.json #5）。
+
+    --safe-mode でも権限設定は読まれる。プロジェクトの .claude/settings.local.json に
+    不正な権限ルールがあると CLI が exit 1 で落ちるので、作業フォルダを learnings/ に固定する。
+    """
+    import tempfile
+    import types
+
+    import lib_transcript as lt
+
+    saved = (lt.subprocess.run, lt.resolve_claude_exe, lt.LEARNINGS_DIR)
+    seen = {}
+
+    def fake_run(args, **kwargs):
+        seen.update(kwargs)
+        return types.SimpleNamespace(returncode=0, stdout="- ok\n", stderr="")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        learn = Path(tmp) / "learnings"
+        try:
+            lt.subprocess.run = fake_run
+            lt.resolve_claude_exe = lambda *a, **k: Path("claude.exe")
+            lt.LEARNINGS_DIR = learn
+            ok, out = lt.call_claude_cli("prompt")
+        finally:
+            lt.subprocess.run, lt.resolve_claude_exe, lt.LEARNINGS_DIR = saved
+
+        assert ok and out == "- ok", f"呼び出しが失敗した: {out}"
+        assert seen.get("cwd") == str(learn), f"作業フォルダが learnings/ でない: {seen.get('cwd')!r}"
+        assert learn.is_dir(), "作業フォルダが作られていない"
+        assert Path(seen["cwd"]).resolve() != Path.cwd().resolve(), "作業フォルダが呼び出し元と同じ"
+
+    print("[OK] call_claude_cli: 作業フォルダを learnings/ に固定して起動する")
+
+
+def test_ephemeral_slug_skipped():
+    """一時フォルダ由来のセッションを対象にしないこと（tests.json #23）。"""
+    import tempfile
+    import time
+
+    from lib_transcript import is_ephemeral_slug
+    from session_start_catchup import find_candidate
+
+    slugs = (
+        "C--Users-yanagawa-AppData-Local-Temp-claude-C--Claude-Project-x-scratchpad-live",
+        "C--Users-yanagawa-AppData-Roaming-Claude-scratch-workspaces-4777f50c-scratch-2026-10-01",
+    )
+    assert all(is_ephemeral_slug(s) for s in slugs), "一時フォルダ由来を見分けられていない"
+    assert not is_ephemeral_slug("C--Claude-Project-yanagawa-loop-learning"), "通常のプロジェクトを除外した"
+
+    two_days_ago = time.time() - 2 * 86400
+    with tempfile.TemporaryDirectory() as tmp:
+        home = Path(tmp) / "home"
+        learn = Path(tmp) / "learnings"
+        learn.mkdir()
+        for slug in slugs + ("C--normal",):
+            f = home / "projects" / slug / "sess.jsonl"
+            f.parent.mkdir(parents=True)
+            f.write_text("{}\n", encoding="utf-8")
+            os.utime(f, (two_days_ago, two_days_ago))
+
+        for slug in slugs:
+            got = find_candidate(slug, "", claude_home=home, learnings_dir=learn)
+            assert got is None, f"一時フォルダ由来が候補になった: {slug}"
+            assert not (learn / slug).exists(), f"learnings/ にフォルダが作られた: {slug}"
+        assert find_candidate("C--normal", "", claude_home=home, learnings_dir=learn) is not None, \
+            "通常のプロジェクトまで候補から外れた"
+
+    print("[OK] 一時フォルダ由来: 拾い直しの候補にせず、learnings/ にフォルダを作らない")
+
+
 if __name__ == "__main__":
     # この PC の標準出力は cp932。テスト名と失敗時のメッセージの日本語が文字化けするので
     # UTF-8 に固定する（CLAUDE.md 落とし穴 2。2026-11-13 実測）。
@@ -351,4 +522,8 @@ if __name__ == "__main__":
     test_session_start_inbox_stdout_encoding()
     test_candidate_floor()
     test_resolve_claude_exe()
+    test_failure_streak()
+    test_retry_after_cli_failure()
+    test_cli_runs_outside_project()
+    test_ephemeral_slug_skipped()
     print("\nALL OFFLINE TESTS PASSED")

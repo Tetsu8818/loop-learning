@@ -33,11 +33,28 @@ from lib_transcript import (  # noqa: E402
     LEARNINGS_DIR,
     build_digest,
     call_claude_cli,
+    is_auth_failure,
     log,
 )
 
 MIN_DIGEST_CHARS = 200  # これ未満なら「学習するほどの会話がなかった」として何もしない
 PROCESSED_FILE = "processed.json"
+
+# CLI の呼び出しが失敗したセッションを、次回の起動でやり直す回数の上限。
+# 以前は claim した時点で処理済みになり、失敗しても二度と試さなかった。2026-09-19 からの
+# 認証切れでは、その作りのせいで 77 本が処理済み扱いのまま捨てられた（2026-11-13 実測）。
+# 3 回にしたのは、1 回 $0.04〜0.10 の費用が掛かる失敗（タイムアウト・予算超過）を
+# 際限なく繰り返さないため。認証切れは費用が掛からないので、この回数には数えない。
+RETRIES_FILE = "retries.json"
+MAX_RETRIES = 3
+
+# extract_outcome() の結果。CLI まで届かなかった・届いて失敗した・届いて成功した、を分ける。
+OUTCOME_STORED = "stored"
+OUTCOME_NONE = "none"                # 抽出に値する知見が無かった
+OUTCOME_SHORT = "short"              # 会話が短すぎて CLI を呼んでいない
+OUTCOME_BAD_OUTPUT = "bad_output"    # 箇条書きの体裁でなかった
+OUTCOME_CLI_FAILED = "cli_failed"    # CLI が失敗した（費用が掛かっている可能性がある）
+OUTCOME_CLI_AUTH = "cli_auth"        # CLI が認証切れで失敗した（費用は掛かっていない）
 
 LOCK_FILE = "extract.lock"
 # Haiku 呼び出しの timeout は 120s。worker の起動と後始末を足しても十分収まる長さにする。
@@ -215,6 +232,49 @@ def mark_processed(proj_dir: Path, session_id: str) -> None:
         log("ERROR", f"mark_processed failed: {e}. session={session_id}")
 
 
+def unmark_processed(proj_dir: Path, session_id: str) -> None:
+    """処理済みの記録から外し、次回の拾い直しの対象に戻す。"""
+    done = load_processed(proj_dir)
+    if session_id not in done:
+        return
+    done.discard(session_id)
+    try:
+        (proj_dir / PROCESSED_FILE).write_text(
+            json.dumps(sorted(done), ensure_ascii=False, indent=0), encoding="utf-8"
+        )
+    except Exception as e:
+        log("ERROR", f"unmark_processed failed: {e}. session={session_id}")
+
+
+def load_retries(proj_dir: Path) -> dict[str, int]:
+    """セッション ID ごとの、CLI が失敗した回数。"""
+    p = proj_dir / RETRIES_FILE
+    if not p.exists():
+        return {}
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+        return {str(k): int(v) for k, v in data.items()}
+    except Exception as e:
+        log("WARN", f"load_retries failed ({e}), treating as empty. dir={proj_dir.name}")
+        return {}
+
+
+def record_retry(proj_dir: Path, session_id: str) -> int:
+    """失敗を 1 回記録し、記録後の回数を返す。書けなかったら上限を返す（やり直さない側に倒す）。"""
+    retries = load_retries(proj_dir)
+    count = retries.get(session_id, 0) + 1
+    retries[session_id] = count
+    try:
+        proj_dir.mkdir(parents=True, exist_ok=True)
+        (proj_dir / RETRIES_FILE).write_text(
+            json.dumps(retries, ensure_ascii=False, indent=0, sort_keys=True), encoding="utf-8"
+        )
+    except Exception as e:
+        log("ERROR", f"record_retry failed: {e}. session={session_id}")
+        return MAX_RETRIES
+    return count
+
+
 def looks_like_bullets(text: str) -> bool:
     """Haiku の出力が箇条書きの体裁かどうか。ロールプレイ混入の検出用。"""
     lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
@@ -224,10 +284,15 @@ def looks_like_bullets(text: str) -> bool:
 
 
 def extract_and_store(transcript_path: str, session_id: str, reason: str, tag: str) -> bool:
-    """抽出して learnings/<proj>/ に積む。書き込んだら True。
+    """抽出して learnings/<proj>/ に積む。書き込んだら True。"""
+    return extract_outcome(transcript_path, session_id, reason, tag) == OUTCOME_STORED
+
+
+def extract_outcome(transcript_path: str, session_id: str, reason: str, tag: str) -> str:
+    """抽出して learnings/<proj>/ に積み、結果を OUTCOME_* で返す。
 
     tag はログの発生源を示す文字列（"session_end" / "catchup"）。
-    呼び出し側で processed への記録を行うこと（抽出可否によらず記録する）。
+    processed の記録と、失敗時のやり直しの判断は呼び出し側（run_worker）が行う。
     """
     proj = Path(transcript_path).parent.name or "unknown"
     proj_dir = LEARNINGS_DIR / proj
@@ -235,17 +300,17 @@ def extract_and_store(transcript_path: str, session_id: str, reason: str, tag: s
     digest = build_digest(transcript_path)
     if len(digest) < MIN_DIGEST_CHARS:
         log("SKIP", f"{tag}: digest too short ({len(digest)} chars). session={session_id}")
-        return False
+        return OUTCOME_SHORT
 
     ok, result = call_claude_cli(EXTRACT_PROMPT_TEMPLATE.format(digest=digest), timeout=120)
     if not ok:
         log("ERROR", f"{tag}: CLI call failed: {result}. session={session_id}")
-        return False
+        return OUTCOME_CLI_AUTH if is_auth_failure(result) else OUTCOME_CLI_FAILED
 
     result = result.strip()
     if result.upper() == "NONE":
         log("INFO", f"{tag}: no learnings extracted. session={session_id}")
-        return False
+        return OUTCOME_NONE
 
     if not looks_like_bullets(result):
         log(
@@ -253,7 +318,7 @@ def extract_and_store(transcript_path: str, session_id: str, reason: str, tag: s
             f"{tag}: output is not a bullet list, discarded. "
             f"session={session_id} head={result[:80]!r}",
         )
-        return False
+        return OUTCOME_BAD_OUTPUT
 
     now = datetime.now(timezone.utc).astimezone()
     date_str = now.strftime("%Y-%m-%d")
@@ -275,7 +340,7 @@ def extract_and_store(transcript_path: str, session_id: str, reason: str, tag: s
         f.write(f"- [{date_str} {sid8}]({detail_path.name})\n")
 
     log("OK", f"{tag}: wrote {detail_path.name}, appended INBOX. session={session_id}")
-    return True
+    return OUTCOME_STORED
 
 
 def spawn_detached_worker(script: Path, target: Path) -> None:
@@ -302,12 +367,30 @@ def spawn_detached_worker(script: Path, target: Path) -> None:
 
 
 def run_worker(target: Path, tag: str, reason: str) -> int:
-    """切り離されたプロセスとして実行される側。実際の抽出を行い、必ずロックを解放する。"""
+    """切り離されたプロセスとして実行される側。実際の抽出を行い、必ずロックを解放する。
+
+    CLI が失敗したときは、claim 済みの processed から外して次回の起動に回す。
+    認証切れは回数に数えず、それ以外の失敗は MAX_RETRIES 回で打ち切る（定数のコメント参照）。
+    ロックを持っている間に processed を書き換えるので、他の起動とは競合しない。
+    """
     try:
         if not target.exists():
             log("ERROR", f"{tag} worker: target vanished: {target.name}")
             return 0
-        if not extract_and_store(str(target), target.stem, reason, tag):
+        session_id = target.stem
+        proj_dir = LEARNINGS_DIR / (target.parent.name or "unknown")
+        outcome = extract_outcome(str(target), session_id, reason, tag)
+        if outcome == OUTCOME_CLI_AUTH:
+            unmark_processed(proj_dir, session_id)
+            log("INFO", f"{tag} worker: 認証切れのため次回に回す（回数に数えない）。{target.name}")
+        elif outcome == OUTCOME_CLI_FAILED:
+            count = record_retry(proj_dir, session_id)
+            if count < MAX_RETRIES:
+                unmark_processed(proj_dir, session_id)
+                log("INFO", f"{tag} worker: 失敗 {count}/{MAX_RETRIES} 回、次回に回す。{target.name}")
+            else:
+                log("WARN", f"{tag} worker: 失敗が {MAX_RETRIES} 回に達したので打ち切る。{target.name}")
+        elif outcome != OUTCOME_STORED:
             log("INFO", f"{tag} worker: nothing stored for {target.name}")
         return 0
     finally:

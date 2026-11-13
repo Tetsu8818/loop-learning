@@ -1,9 +1,10 @@
 """SessionStart フック。会話冒頭に注入する通知を出す。LLM は呼ばない。
 
-2系統ある。どちらも独立に判定し、該当するほうだけ出す。
+3系統ある。どれも独立に判定し、該当するものだけ出す。
 
-1. INBOX 通知 — learnings/<proj>/INBOX.md に未処理の知見があるか
-2. 棚卸し通知 — memory/ が溜まったか、前回の棚卸しから日が経ったか
+1. 失敗の通知 — 抽出の CLI 呼び出しが続けて失敗しているか
+2. INBOX 通知 — learnings/<proj>/INBOX.md に未処理の知見があるか
+3. 棚卸し通知 — memory/ が溜まったか、前回の棚卸しから日が経ったか
 
 SessionStart の stdout はそのまま文脈として Claude に渡る。
 出すものが無ければ、何も出さずに静かに exit する。
@@ -18,10 +19,25 @@ sys.path.insert(0, str(Path(__file__).parent))
 from lib_transcript import (  # noqa: E402
     CLAUDE_HOME,
     LEARNINGS_DIR,
+    LOG_DIR,
+    is_auth_failure,
     log,
     project_slug_from_transcript,
     read_hook_input,
 )
+
+# 抽出の連続失敗を知らせる条件。
+#
+# 2026-09-19 から 8 週間、CLI の認証切れで抽出が 153 回続けて失敗していたが、どこにも
+# 通知が出ず、ログを集計するまで気づけなかった（2026-11-13 実測）。
+# 3 回にしたのは、単発のタイムアウトや予算超過（8〜9 月に計 9 件）では出さないため。
+FAILURE_STREAK_THRESHOLD = 3
+# さかのぼるログの本数（1 日 1 本）。成功がこの範囲に無ければ、範囲内の失敗をすべて数える。
+FAILURE_SCAN_FILES = 30
+CLI_FAILED_MARK = "CLI call failed: "
+# CLI が応答を返したことを示すログ。書き込み・知見なし・体裁不正のどれも「CLI は動いた」。
+CLI_ALIVE_MARKS = (": wrote ", "no learnings extracted", "output is not a bullet list")
+MAX_REASON_CHARS = 120
 
 MAX_ENTRIES_SHOWN = 5
 INBOX_DATE_RE = re.compile(r"^- \[(\d{4}-\d{2}-\d{2})\b")
@@ -128,6 +144,45 @@ def report_review(proj: str) -> bool:
     return True
 
 
+def failure_streak(log_dir: Path = LOG_DIR) -> tuple[int, str, str]:
+    """直近の成功より後に続いている CLI 失敗を数える。
+
+    返すのは (回数, 最初の失敗の日付, 直近の失敗理由)。失敗が無ければ (0, "", "")。
+    ログを新しい順にたどり、CLI が応答した行に当たったところで止める。
+    """
+    count, first_date, last_reason = 0, "", ""
+    files = sorted(log_dir.glob("????-??-??.log"), reverse=True)[:FAILURE_SCAN_FILES]
+    for f in files:
+        try:
+            lines = f.read_text(encoding="utf-8", errors="replace").splitlines()
+        except OSError:
+            continue
+        for line in reversed(lines):
+            if any(mark in line for mark in CLI_ALIVE_MARKS):
+                return count, first_date, last_reason
+            if CLI_FAILED_MARK in line:
+                count += 1
+                first_date = line[:10]
+                if not last_reason:
+                    reason = line.split(CLI_FAILED_MARK, 1)[1].split(" session=")[0]
+                    last_reason = reason[:MAX_REASON_CHARS]
+    return count, first_date, last_reason
+
+
+def report_failures(log_dir: Path = LOG_DIR) -> bool:
+    count, first_date, last_reason = failure_streak(log_dir)
+    if count < FAILURE_STREAK_THRESHOLD:
+        return False
+    print("【自己改善システム】知見の抽出が止まっています。user に伝えてください。")
+    print(f"連続失敗: {count} 回（{first_date} から。直近のログ {FAILURE_SCAN_FILES} 本で集計）")
+    print(f"直近の理由: {last_reason}")
+    if is_auth_failure(last_reason):
+        print("対処: user 本人がターミナルで `claude /login` を実行する。")
+    else:
+        print(f"対処: {log_dir} の当日のログで `CLI call failed` の行を確認する。")
+    return True
+
+
 def main() -> int:
     # この PC の標準出力は既定が cp932 で、Claude Code は hook の stdout を UTF-8 として
     # 読むため、通知が文字化けして文脈に入っていた（2026-10-10 実測）。
@@ -146,7 +201,9 @@ def main() -> int:
         return 0
 
     proj = project_slug_from_transcript(transcript_path)
-    # 2系統は独立。片方が出なくても、もう片方は判定する。
+    # 3系統は独立。どれかが出なくても、残りは判定する。
+    if report_failures():
+        print()
     shown = report_inbox(proj)
     if shown:
         print()

@@ -34,6 +34,7 @@ from lib_extract import (  # noqa: E402
 from lib_transcript import (  # noqa: E402
     LEARNINGS_DIR,
     is_child_invocation,
+    is_ephemeral_slug,
     log,
     project_slug_from_transcript,
     read_hook_input,
@@ -61,6 +62,11 @@ def main() -> int:
         # トランスクリプトを残さない短命セッション。アプリが日常的に発火させるので
         # WARN では騒がしすぎる。拾い直しの対象にもならないため、静かに落とす。
         log("SKIP", f"session_end_learn: no transcript on disk. session={session_id}")
+        return 0
+
+    if is_ephemeral_slug(project_slug_from_transcript(transcript_path)):
+        # 一時フォルダで開かれたセッション。learnings/ にフォルダを作らずに終わる。
+        log("SKIP", f"session_end_learn: 一時フォルダ由来のため対象外。session={session_id}")
         return 0
 
     # 拾い直しの worker と同時に走ると、双方が claude.exe を起動して

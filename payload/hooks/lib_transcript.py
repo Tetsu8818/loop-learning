@@ -69,6 +69,29 @@ def log(event: str, message: str) -> None:
         pass
 
 
+# スラッグにこれらを含むセッションは、アプリが一時フォルダで開いたもの。プロジェクトの
+# 知見にならないので抽出の対象にしない（2026-11-13 実測: learnings/ に該当フォルダ 2 件）。
+EPHEMERAL_SLUG_MARKERS = ("appdata-local-temp", "scratch-workspaces")
+
+# CLI の失敗理由のうち、ログインし直せば解消するもの。費用が掛からずに失敗するので、
+# 再試行の回数には数えない（lib_extract.run_worker）。
+# 実測（2026-09-19〜11-13、153 件）: "Failed to authenticate: OAuth session expired and
+# could not be refreshed."
+AUTH_FAILURE_MARKERS = ("not logged in", "failed to authenticate", "oauth session expired")
+
+
+def is_ephemeral_slug(slug: str) -> bool:
+    """一時フォルダ由来のプロジェクトスラッグかどうか。"""
+    low = slug.lower()
+    return any(m in low for m in EPHEMERAL_SLUG_MARKERS)
+
+
+def is_auth_failure(reason: str) -> bool:
+    """call_claude_cli の失敗理由が、認証切れによるものかどうか。"""
+    low = reason.lower()
+    return any(m in low for m in AUTH_FAILURE_MARKERS)
+
+
 def is_child_invocation() -> bool:
     """このプロセス自身が、フックから起動した claude CLI の子孫かどうか。"""
     return os.environ.get(GUARD_ENV) == "1"
@@ -220,6 +243,16 @@ def call_claude_cli(
     env = dict(os.environ)
     env[GUARD_ENV] = "1"
 
+    # 作業フォルダをプロジェクトの外に固定する。--safe-mode でも権限設定は読まれるため、
+    # フックを起動したプロジェクトの .claude/settings.local.json に不正な権限ルールが
+    # あると、CLI が起動時に exit 1 で落ちる（2026-10-26〜11-09 に 13 件。
+    # "Permission allow rule (.claude\settings.local.json): Write(./_out/**) is not matched..."）。
+    # この呼び出しはプロジェクトのファイルに用がないので、設定の無い場所で起動する。
+    try:
+        LEARNINGS_DIR.mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        return False, f"作業フォルダを作れない: {LEARNINGS_DIR} ({e})"
+
     args = [
         str(exe),
         "--print",
@@ -247,6 +280,7 @@ def call_claude_cli(
             errors="replace",
             timeout=timeout,
             env=env,
+            cwd=str(LEARNINGS_DIR),
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
     except subprocess.TimeoutExpired:

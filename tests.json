@@ -167,11 +167,18 @@
       "status": "passing",
       "verify": "`ls ~/.claude/rules/*.md` が 6 本を返し、`python tests/run_offline.py` が 10 件通過する",
       "source": "2026-11-13 夜の実測（日中は存在し、21 時以降に消失。原因は未特定。オフラインテストの memory_scan が [[self-improve]] をリンク切れと判定して失敗する。user の承認待ち）"
+    },
+    {
+      "id": 25,
+      "name": "git のリモートに別 PC から入った 3 コミット（2026-10-10: Haiku を固定 ID claude-haiku-5-5 に、INBOX は依頼があるまで処理しない、learn の frontmatter 変更、テスト 1 件追加）を、この PC の正本と突き合わせて取り込む",
+      "status": "not_started",
+      "verify": "`git status -sb` が origin/master と差分なし、payload が正本と diff 一致、`python tests/run_offline.py` が全件通過する",
+      "source": "2026-11-13 実測（git push が拒否。origin/master に 0855917・9eee490・aab5550。モデル指定と learn の frontmatter がこの PC の正本と食い違う。user の決定待ち）"
     }
   ],
-  "total": 24,
+  "total": 25,
   "passing": 4,
   "failing": 0,
-  "not_started": 20,
+  "not_started": 21,
   "dropped": 0
 }

@@ -18,3 +18,5 @@ Session 2 progress (2026-11-13):
 - test #24 を passing に（rules/ の 6 本を復元。全ファイルが消失前のバイト数と一致、合計 15,015B）
 - test #15 を passing に（環境変数なしで 10 件通過、出力を UTF-8 で読めた）
 - test #10 は not_started のまま: payload/hooks/post_edit_log.py に対応する正本が無い（#8 の決定待ち）。ほかの payload は正本と一致
+- git にローカルコミット d366498。push は拒否された（origin/master に別 PC の 3 コミット。test #25 を追加）。SVN は未コミット（git と同じ内容に保つため保留）
+- Next: test #25 の取り込み方針を user が決める → マージ → push → svn add（tests.json・progress.txt）→ svn update → svn commit（test #11）

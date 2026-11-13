@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Claude Code 自己改善システムをアンインストールする。
 
@@ -44,6 +44,7 @@ $hookFiles = @(
     "session_end_learn.py",
     "session_start_catchup.py",
     "session_start_inbox.py",
+    # 2026-11-13 に廃止した 2 本。旧版を導入済みの PC から消すために残してある。
     "post_edit_log.py",
     "pre_compact_snapshot.py",
     "memory_scan.py"

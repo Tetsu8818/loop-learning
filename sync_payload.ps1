@@ -27,8 +27,6 @@ $hookFiles = @(
     "session_end_learn.py",
     "session_start_catchup.py",
     "session_start_inbox.py",
-    "post_edit_log.py",
-    "pre_compact_snapshot.py",
     "memory_scan.py"
 )
 

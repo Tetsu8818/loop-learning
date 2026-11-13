@@ -1,7 +1,7 @@
 """Claude Code 自己改善システム — 共有ライブラリ。
 
 lib_extract.py と、各フック（session_end_learn / session_start_catchup /
-session_start_inbox / post_edit_log / pre_compact_snapshot）から import される。
+session_start_inbox）から import される。
 単体では何もしない。
 """
 from __future__ import annotations

@@ -29,8 +29,6 @@ Auto Memory 運用あり）向けに実装したもの。記事どおりには�
 │   ├── session_end_learn.py         ← SessionEnd: 知見抽出 → INBOX
 │   ├── session_start_catchup.py     ← SessionStart: 取りこぼしの拾い直し（別プロセス）
 │   ├── session_start_inbox.py       ← SessionStart: INBOX 未処理を通知
-│   ├── post_edit_log.py             ← PostToolUse: 編集ファイルを記録（LLM 不使用）
-│   ├── pre_compact_snapshot.py      ← PreCompact: 作業状態のスナップショット
 │   ├── memory_scan.py               ← メモリ棚卸しの走査（LLM 不使用）
 │   ├── logs/YYYY-MM-DD.log          ← 全フックの実行ログ
 │   └── logs/badinput-*.bin          ← 壊れた入力の生バイト列（未解決問題の調査用）
@@ -43,7 +41,7 @@ Auto Memory 運用あり）向けに実装したもの。記事どおりには�
     ├── INBOX.md                     ← 未処理の知見（1行1件）
     ├── YYYY-MM-DD-<sid8>.md         ← 抽出詳細（frontmatter 付き）
     ├── processed.json               ← 抽出済みセッション ID（二重処理の防止）
-    └── edited-files.jsonl           ← 編集ファイルのログ
+    └── retries.json                 ← CLI が失敗した回数（3 回で打ち切り）
 
 C:\Claude\Project\yanagawa\loop-learning\    （このリポジトリ。SVN と git の二重管理 — CLAUDE.md 参照）
 ├── CLAUDE.md                        ← このリポジトリで作業する Claude 向けの前提
@@ -81,11 +79,12 @@ C:\Claude\Project\yanagawa\loop-learning\    （このリポジトリ。SVN と 
 
 ## 運用実績と検証状況（2026-11-13 時点）
 
-**2026-09-19 から `claude` CLI が未ログインで、抽出は全件失敗している**（`wrote` 0 件、
-認証エラー 153 件。2026-11-13 実測）。復旧の手順と残作業は `tests.json`（台帳）と
-[docs/manual.md §4](docs/manual.md)。この PC の構成は上の図と 2 点で違う:
-`post_edit_log.py` は正本から外してあり、`state_report.py`（`state-files` スキルの
-通知フック）が SessionStart に入っている。
+**2026-09-19〜11-13 の間、`claude` CLI が未ログインで抽出は全件失敗していた**（`wrote` 0 件、
+認証エラー 153 件）。11-13 に再ログインして復旧し、止まっても気づける・取り戻せる作りに
+直した（[docs/design.md §19〜§22](docs/design.md)）。残作業は `tests.json`（台帳）。
+この PC には、上の図のほかに `state_report.py`（`state-files` スキルの通知フック）が
+SessionStart に入っている。編集ファイルの記録（PostToolUse）と圧縮前スナップショット
+（PreCompact）は 11-13 に廃止した。
 
 月別の抽出（ログの `wrote` / `CLI call failed`）: 8月 63 / 8、9月 47 / 19、
 10月 0 / 104、11月（13日まで） 0 / 44。
@@ -118,14 +117,14 @@ C:\Claude\Project\yanagawa\loop-learning\    （このリポジトリ。SVN と 
 5. このリポジトリを移植先 PC に用意する（SVN checkout など）
 6. `powershell -File install.ps1` を実行 — `payload/` の内容を
    `~/.claude/` に配置し、`settings.json` の `hooks` ブロックへ
-   5エントリを追記する（バックアップは自動で
+   3エントリを追記する（バックアップは自動で
    `settings.json.bak-<timestamp>` に取る。再実行しても二重追加されない）
 7. 新規セッションを開いて動作確認（`~/.claude/hooks/logs/` にログが出るか）
 
 ### 一から作る場合（元記事どおりに自分で組む場合）
 
 1〜3 は上と同じ。
-4. `~/.claude/hooks/` に8本のスクリプトを配置（このリポジトリの設計に基づく）
+4. `~/.claude/hooks/` に6本のスクリプトを配置（このリポジトリの設計に基づく）
 5. `~/.claude/settings.json` をバックアップしてから `hooks` ブロックを追記
 6. 新規セッションを開いて動作確認
 
@@ -140,7 +139,7 @@ Haiku 4.5 のとき（2026-08-24）は $0.04〜$0.10/回だった。測り方と
 拾い直しは1起動あたり1本までで、更新から30分未満のもの・30日より古いもの・
 導入日時（`learnings/installed-at`）より前のものは対象外にしてある
 （導入時に過去の全セッションをさかのぼって課金しないため）。
-PostToolUse は LLM を使わないのでゼロ。サブスク認証時にこれが従量課金か
+通知のフックは LLM を使わないのでゼロ。サブスク認証時にこれが従量課金か
 契約枠消費かは環境依存のため個別に確認すること。
 
 ## アンインストール

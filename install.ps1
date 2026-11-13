@@ -128,8 +128,6 @@ function Add-HookEntry {
 Add-HookEntry -Settings $settings -EventName "SessionEnd" -ScriptFile "session_end_learn.py" -Timeout 180 -Async
 Add-HookEntry -Settings $settings -EventName "SessionStart" -Matcher "startup|resume|clear" -ScriptFile "session_start_inbox.py" -Timeout 15
 Add-HookEntry -Settings $settings -EventName "SessionStart" -Matcher "startup|resume|clear" -ScriptFile "session_start_catchup.py" -Timeout 180 -Async
-Add-HookEntry -Settings $settings -EventName "PostToolUse" -Matcher "Edit|Write|NotebookEdit" -ScriptFile "post_edit_log.py" -Timeout 15 -Async
-Add-HookEntry -Settings $settings -EventName "PreCompact" -ScriptFile "pre_compact_snapshot.py" -Timeout 120
 
 $json = $settings | ConvertTo-Json -Depth 20
 # Set-Content -Encoding utf8NoBOM は PowerShell 7 以降限定のため、

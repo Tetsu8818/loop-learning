@@ -60,3 +60,14 @@ Session 6 progress (2026-11-13):
 - 経緯と数値は design.md §21
 - Next: 次のセッション開始時に、認証切れで失敗した分がやり直しで拾われるかをログで見る（`grep "catchup: wrote"`）。user の決定待ちは #2・#7・#8・#9・#22。第 4 段は #14・#16
 - Note: 旧プロンプトが劣るという実測は無い。新プロンプトの根拠は公式の指針で、実測で分かったのは「制約を守れる」ことまで
+
+Session 7 progress (2026-11-13):
+- user が 5 件を決定（推奨どおり）: #2 全部再抽出 / #7 PreCompact 廃止 / #8 編集ファイルの記録フックは廃止で揃える / #9 state_report.py は配布物に含めない / #22 現行のまま、90 日超は破棄
+- test #2 を passing に: 対象 75 本（80 本から記録なし 3・一時フォルダ由来 2 を除外）を再抽出し、wrote 69・知見なし 6・CLI 失敗 0。verify の「processed.json から外れ」は文字どおりではない（拾い直しは 30 日以内しか選ばないため、外さずにフックと同じ順序で直接実行した。処理後は 75 本とも処理済み）
+- test #7・#9・#22 を passing に（design.md §22 に決定を記録。settings.json の hooks と manual.md §6 の表が 4 行一致。INBOX の候補は 100 件で記録と一致、90 日超は 0 件）
+- test #8 を passing に: payload・install・sync・README・manual の現行記述から消えた。uninstall.ps1 の削除対象には 2 行を意図して残した（旧版を導入済みの PC の後始末用）。verify の「grep で 0 件」は、この 2 行と台帳・記録・設計書の履歴を除いた読み方
+- test #10 を passing に（payload の全ファイルが正本と一致）
+- uninstall.ps1 に BOM が無く、Windows PowerShell で構文エラー 3 件だった（コミット済みの版でも同じ）。BOM を付けて 0 件に。実際の削除は未実行
+- 正本を変更: settings.json（PreCompact を削除）、hooks/pre_compact_snapshot.py を _bak へ、skills/learn/SKILL.md（90 日ルール）。変更前は ~/.claude/backup/2026-11-13-decisions/
+- Next: 第 4 段（#14 ファイル一覧の一本化、#16 ルールの圧縮。現在 15,067B）。#6 は 2026-11-27 頃に `grep "session_end: wrote"` で判定。#26（digest の上限）は質の比較が要る
+- Note: 再抽出した 68 本のうち 4 行が 2 本、150 文字超が 205 行中 6 行。形式の制約は 3% 前後で破れる

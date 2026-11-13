@@ -15,18 +15,15 @@
   以後は実セッションから届いている（09-19〜11-13 に worker の起動 43 回）。
 - 拾い直しの対象は「更新から30分以上・30日以内・導入日時（`learnings/installed-at`）以降」の
   未処理トランスクリプト。1週間以上開かなかったプロジェクトも、30日以内なら拾われる。
-- 3経路（SessionEnd・拾い直し・PreCompact）は `extract.lock` で直列化される。
-  抽出中にコンテキスト圧縮が起きると、その回のスナップショットは見送られる（`[SKIP]`）。
-- **編集ファイルの記録**（`PostToolUse` の `post_edit_log.py`）は、2026-11-13 に
-  この PC の正本と settings.json から外してある（`hooks/_bak/` に退避）。
-  `edited-files.jsonl` を読むコードは無い。配布物（payload・install.ps1）にはまだ
-  残っており、扱いは未決（`tests.json` #8）。
+- 2経路（SessionEnd・拾い直し）は `extract.lock` で直列化される。
 - **状態ファイルの通知**（`SessionStart` の `state_report.py`）は、作業フォルダ直下に
-  `tests.json` があるときだけ、未完了の一覧と直近の記録を出す。`state-files` スキルの
-  一部で、このリポジトリの配布物には入っていない（扱いは `tests.json` #9）。
-- **コンテキスト圧縮の直前**（`PreCompact`）、直近のやり取りが「実装済み /
-  未完了 / 直面している問題」の3点に要約され、
-  `~/.claude/snapshots/session-<id>-<timestamp>.md` に保存される。
+  `tests.json` があるときだけ、未完了の一覧と直近の記録を出す。圧縮の直後にも出る。
+  `state-files` スキルの一部で、このリポジトリの配布物には含めない（2026-11-13 決定）。
+- **2026-11-13 に廃止したもの**（[design.md §22](design.md)）:
+  編集ファイルの記録（`PostToolUse`）と、圧縮前スナップショット（`PreCompact`）。
+  どちらも出力を読む仕組みが無かった。溜まっている `edited-files.jsonl` と
+  `~/.claude/snapshots/` は消していない。旧版を導入済みの PC では、
+  `uninstall.ps1` → `install.ps1` の順で入れ直すと登録とファイルが外れる。
 
 ## 2. 対応が要る部分
 
@@ -116,17 +113,13 @@ INBOX の通知とは別系統。**すでに `memory/` に入ったものを見�
 
 ### 未解決
 
-**`claude` CLI が未ログインで、抽出が全件失敗している（2026-09-19〜）**
+**認証切れの間に失敗したセッションの取り戻し（進行中）**
 
-- 症状: `[ERROR] ...: CLI call failed: exit 1: Failed to authenticate: OAuth session expired and could not be refreshed.`
-- 実測（2026-11-13）: 09-19 以降の `wrote` は 0 件、この認証エラーは 153 件。
-  `claude auth status` は `"loggedIn": false`。最後の成功は 09-18。
-- 対処: user 本人がターミナルで `claude /login` を実行する（`tests.json` #1）。
-- 2026-11-13 の修正より前に失敗した 77 本は「処理済み」に記録されたままで、再ログイン
-  しても自動では再試行されない。記録は残っている（`tests.json` #2）。
-- 2026-11-13 以降は、CLI が失敗したセッションは次回の起動でやり直す（認証切れは回数無制限、
-  それ以外は 3 回まで）。失敗が 3 回続くと、セッション開始時に「知見の抽出が止まっています」
-  と通知が出る（[design.md §19](design.md)）。
+- 2026-09-19〜11-13 の間、フックが呼ぶ `claude` CLI が未ログインで、抽出は全件失敗していた
+  （`wrote` 0 件、認証エラー 153 件）。11-13 に再ログインして復旧した。
+- 失敗した 80 本のうち、記録が残っている 75 本を 11-13 に再抽出した。結果は
+  [design.md §22](design.md)。
+- 再発したときは、セッション開始時に「知見の抽出が止まっています」と通知が出る（2節）。
 
 **`SessionEnd` 経由の抽出は判定待ち**
 
@@ -168,8 +161,8 @@ INBOX の通知とは別系統。**すでに `memory/` に入ったものを見�
 | フック実行ログ | `~/.claude/hooks/logs/YYYY-MM-DD.log` |
 | 知見INBOX（プロジェクト別） | `~/.claude/learnings/<proj>/INBOX.md` |
 | 知見詳細（frontmatter付き） | `~/.claude/learnings/<proj>/YYYY-MM-DD-<sid8>.md` |
-| 編集ファイルログ（2026-11-13 から記録停止） | `~/.claude/learnings/<proj>/edited-files.jsonl` |
-| 圧縮前スナップショット | `~/.claude/snapshots/session-<id>-<timestamp>.md` |
+| 編集ファイルログ（2026-11-13 廃止。過去分のみ） | `~/.claude/learnings/<proj>/edited-files.jsonl` |
+| 圧縮前スナップショット（2026-11-13 廃止。過去分のみ） | `~/.claude/snapshots/session-<id>-<timestamp>.md` |
 | 拾い直しの処理済み記録 | `~/.claude/learnings/<proj>/processed.json` |
 | CLI が失敗した回数（3 回で打ち切り。認証切れは数えない） | `~/.claude/learnings/<proj>/retries.json` |
 | 抽出の排他ロック（**全体で1つ**） | `~/.claude/learnings/extract.lock` |
@@ -197,11 +190,9 @@ INBOX の通知とは別系統。**すでに `memory/` に入ったものを見�
 | `SessionStart` | `startup\|resume\|clear\|compact` | `state_report.py` | 15s | — |
 | `SessionStart` | `startup\|resume\|clear` | `session_start_inbox.py` | 15s | — |
 | `SessionStart` | `startup\|resume\|clear` | `session_start_catchup.py` | 180s | ○ |
-| `PreCompact` | — | `pre_compact_snapshot.py` | 120s | — |
 
 この PC の `settings.json` の実際の内容（2026-11-13 実測）。`install.ps1` が別 PC に
-追記する内容とは 2 点で違う: `state_report.py` は入らず、`PostToolUse` の
-`post_edit_log.py` が入る（`tests.json` #8・#9 で揃える）。
+追記するのは `state_report.py` を除く 3 行（`state_report.py` は `state-files` スキルの側で入れる）。
 
 `memory_scan.py` はフックではない。`/memory-review` から呼ばれる走査
 スクリプトで、LLM を使わないため単体でも実行できる
@@ -215,7 +206,7 @@ INBOX の通知とは別系統。**すでに `memory/` に入ったものを見�
 
 `call_claude_cli()` の呼び出し1回あたり `--max-budget-usd 0.03` で
 歯止め（`lib_transcript.DEFAULT_MAX_BUDGET_USD`）。Haiku を呼ぶのは
-`SessionEnd` / `SessionStart` の拾い直し / `PreCompact` の3か所。
+`SessionEnd` と `SessionStart` の拾い直しの2か所。
 `session_start_inbox` と `state_report` は LLM を使わないのでゼロ。
 
 **1回あたりの実費は $0.0008〜$0.0039 です**（2026-11-13 実測、Haiku 5.5、8 回）。
@@ -232,6 +223,6 @@ python tests/run_offline.py    # claude CLI を呼ばないオフラインテス
 ```
 
 ```powershell
-powershell -File uninstall.ps1              # hooks 8本/rules/skill 2本を削除、learnings/snapshots は残す
+powershell -File uninstall.ps1              # hooks 8本（廃止した2本を含む）/rules/skill 2本を削除、learnings/snapshots は残す
 powershell -File uninstall.ps1 -RemoveData  # learnings/snapshots も削除
 ```

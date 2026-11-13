@@ -10,7 +10,7 @@
     {
       "id": 2,
       "name": "認証切れの間に処理済み扱いになった 77 セッション（catchup 51・session_end 26、記録が残っているもの）を再抽出の対象に戻すかを決め、戻すなら実施する",
-      "status": "not_started",
+      "status": "passing",
       "verify": "対象のセッション ID が各 processed.json から外れ、ログに同じ ID の `wrote` または `no learnings extracted` が出る",
       "source": "2026-11-13 点検（実測: 失敗 104 セッション中 101 本の記録が残存。費用は 1 本 $0.04〜0.10 相当。user の決定待ち）"
     },
@@ -45,28 +45,28 @@
     {
       "id": 7,
       "name": "PreCompact スナップショットの扱いを決める（24 件が溜まり、読む仕組みが無い。圧縮を最大 90 秒待たせ、Haiku の費用が掛かる）",
-      "status": "not_started",
+      "status": "passing",
       "verify": "決定が design.md に追番の節で記録され、settings.json の hooks と manual.md §6 の表が決定どおりに一致する",
       "source": "2026-11-13 点検（実測: snapshots/ 24 件・最終 09-17、参照するコードと文書は 0。公式 hooks: PostCompact が compact_summary を LLM なしで渡す。user の決定待ち）"
     },
     {
       "id": 8,
       "name": "post_edit_log.py の扱いを決めて揃える（正本と settings.json には無く、payload・install・sync・uninstall・README・manual には残っている）",
-      "status": "not_started",
+      "status": "passing",
       "verify": "`grep -rn post_edit_log` の結果が、決定（廃止なら 0 件、復帰なら正本と payload が diff 一致）どおりになる",
       "source": "2026-11-13 点検（実測。正本から外した経緯の記録は design.md に無い。user の決定待ち）"
     },
     {
       "id": 9,
       "name": "state_report.py（状態ファイルの通知フック）を、このリポジトリの配布物に含めるかを決めて揃える",
-      "status": "not_started",
+      "status": "passing",
       "verify": "sync_payload.ps1・install.ps1・uninstall.ps1 の一覧と README の構成図が、決定どおりに一致する",
       "source": "2026-11-13 点検（実測: 正本と settings.json にあり、payload と 3 本のスクリプトに無い。user の決定待ち）"
     },
     {
       "id": 10,
       "name": "payload を正本と一致させる（memory_scan.py と session_start_inbox.py が古い）",
-      "status": "not_started",
+      "status": "passing",
       "verify": "payload/ の全ファイルが `diff --strip-trailing-cr` で正本と一致する",
       "source": "2026-11-13 点検（実測: 差分はコメント 1 行と stdout の UTF-8 固定 3 行）"
     },
@@ -150,7 +150,7 @@
     {
       "id": 22,
       "name": "各プロジェクトの INBOX に滞留している未処理の知見（16 プロジェクト・31 件、すべて 8〜9 月分）の扱いを決める。昇格はそのプロジェクトを開いたときにしか進まない",
-      "status": "not_started",
+      "status": "passing",
       "verify": "決定が design.md に追番の節で記録され、決定どおりに処理した後の `cat ~/.claude/learnings/*/INBOX.md | grep -c '^- '` の値が記録と一致する",
       "source": "2026-11-13 点検（実測: 候補 31 件。user の決定待ち）"
     },
@@ -184,8 +184,8 @@
     }
   ],
   "total": 26,
-  "passing": 16,
+  "passing": 22,
   "failing": 0,
-  "not_started": 10,
+  "not_started": 4,
   "dropped": 0
 }

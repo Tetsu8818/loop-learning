@@ -129,7 +129,7 @@
     {
       "id": 19,
       "name": "INBOX 通知の文面を、件数・場所・/learn の案内に絞る（現在は昇格の手順まで指示形で書いてあり、self-improve.md・learn スキルと重複する）",
-      "status": "not_started",
+      "status": "passing",
       "verify": "オフラインテスト: 通知文に /learn の案内があり、手順の記述が無い",
       "source": "2026-11-13 点検（session_start_inbox.py:85-89。手順の正本は learn スキル）"
     },
@@ -171,14 +171,14 @@
     {
       "id": 25,
       "name": "git のリモートに別 PC から入った 3 コミット（2026-10-10: Haiku を固定 ID claude-haiku-5-5 に、INBOX は依頼があるまで処理しない、learn の frontmatter 変更、テスト 1 件追加）を、この PC の正本と突き合わせて取り込む",
-      "status": "not_started",
+      "status": "passing",
       "verify": "`git status -sb` が origin/master と差分なし、payload が正本と diff 一致、`python tests/run_offline.py` が全件通過する",
       "source": "2026-11-13 実測（git push が拒否。origin/master に 0855917・9eee490・aab5550。モデル指定と learn の frontmatter がこの PC の正本と食い違う。user の決定待ち）"
     }
   ],
   "total": 25,
-  "passing": 4,
+  "passing": 6,
   "failing": 0,
-  "not_started": 21,
+  "not_started": 19,
   "dropped": 0
 }

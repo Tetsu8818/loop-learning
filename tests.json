@@ -73,7 +73,7 @@
     {
       "id": 11,
       "name": "未コミットの変更（HAIKU_MODEL のエイリアス化 10-02、install.ps1 の疎通確認コマンド）を git と SVN にコミットする",
-      "status": "not_started",
+      "status": "passing",
       "verify": "`git status --short` と `svn status` がどちらも空",
       "source": "2026-11-13 点検（実測: 2 ファイルが両方の VCS で M のまま）"
     },
@@ -177,8 +177,8 @@
     }
   ],
   "total": 25,
-  "passing": 6,
+  "passing": 7,
   "failing": 0,
-  "not_started": 19,
+  "not_started": 18,
   "dropped": 0
 }

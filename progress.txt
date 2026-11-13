@@ -28,3 +28,4 @@ Session 3 progress (2026-11-13):
 - rules の合計は 15,067B に増えた（test #16 の対象。self-improve.md が 1,657 → 1,709B）
 - Next: test #1（user が `claude /login`）。次に第 2 段（#3・#4・#5・#23）。user の決定待ちは #2・#7・#8・#9・#22
 - Note: モデル指定はエイリアス haiku。別 PC の CLI が古い場合は解決先を確かめる（lib_transcript.py のコメント）
+- test #11 を passing に（git は origin/master と一致、SVN は r318。どちらの作業ツリーも空であることを確認）

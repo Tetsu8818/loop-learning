@@ -49,3 +49,14 @@ Session 5 progress (2026-11-13):
 - 経緯と数値は design.md §20
 - Next: test #1（ログインの入り先を user と確認）→ ログイン後に test #17（Haiku 5.5 向けの公式ページを読んでからプロンプトを書き直し、実抽出 3 本）と test #21（費用の再実測）。やり直しの経路で wrote が出ることも同時に確かめる
 - Note: 新しい digest で抽出の質と費用がどう変わるかは未確認（実抽出を走らせていない）
+
+Session 6 progress (2026-11-13):
+- test #1 を passing に（`claude auth status` が loggedIn true。.credentials.json が 22:43 に更新）
+- test #17 を passing に（抽出プロンプトを書き直し。1 回目の版は 3 本中 2 本で行数・文字数の上限を破ったため、出力形式を末尾へ移して測り直し、3 本とも箇条書き 3 行・150 文字以内）
+- test #21 を passing に（Haiku 5.5 で 8 回実測: $0.0008〜0.0039、11〜24 秒。DEFAULT_MAX_BUDGET_USD を 0.15 → 0.03）
+- テスト用スラッグ zz-selftest で、フックと同じ経路の抽出が完走（ログに 09-18 以来の wrote）。テスト用データは削除済み
+- test #26 を追加（digest の上限を広げるかどうか。質の比較が要る）
+- 正本を変更: hooks/lib_extract.py（プロンプト）・hooks/lib_transcript.py（費用の実測値、上限 0.03）。変更前は ~/.claude/backup/2026-11-13-stage3/
+- 経緯と数値は design.md §21
+- Next: 次のセッション開始時に、認証切れで失敗した分がやり直しで拾われるかをログで見る（`grep "catchup: wrote"`）。user の決定待ちは #2・#7・#8・#9・#22。第 4 段は #14・#16
+- Note: 旧プロンプトが劣るという実測は無い。新プロンプトの根拠は公式の指針で、実測で分かったのは「制約を守れる」ことまで

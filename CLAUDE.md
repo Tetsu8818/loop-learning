@@ -11,7 +11,7 @@ memory/ へ昇格させるフック群）の設計・テスト・配布物。こ
 | **正本は `~/.claude/` 側**（hooks/*.py、rules/self-improve.md、skills/learn・memory-review） | このリポジトリの `payload/` は配布用コピー。**直すのは正本**。直したら `sync_payload.ps1` で payload を最新化してからコミットする（一方向。逆方向は install.ps1） |
 | 正本を直すと、**この PC の全プロジェクトのフックが即座に変わる** | 壊すと全セッションの SessionStart / PreCompact が落ちる。直したら `python tests/run_offline.py` を必ず通す |
 | Python は `C:\Users\yanagawa\AppData\Local\Programs\Python\Python312\python.exe` | settings.json のフックもこのフルパスで呼んでいる。PATH に無いことがある |
-| `claude` CLI を呼ぶ検証は1回 $0.04〜$0.10 かかる | オフラインテストで足りる検証に使わない。使うときはテスト用のスラッグ（例 `zz-selftest`）で行い、終わったら `learnings/` から消す |
+| `claude` CLI を呼ぶ検証は1回 $0.001〜$0.004 かかる（2026-11-13 実測、Haiku 5.5） | オフラインテストで足りる検証に使わない。使うときはテスト用のスラッグ（例 `zz-selftest`）で行い、終わったら `learnings/` から消す |
 
 ## 正本の場所
 

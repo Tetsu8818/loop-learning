@@ -3,7 +3,7 @@
     {
       "id": 1,
       "name": "claude CLI に再ログインする（user 本人の操作）。2026-09-19 から未ログインで、抽出の成功が 0 件・失敗 153 件",
-      "status": "not_started",
+      "status": "passing",
       "verify": "`claude auth status` が \"loggedIn\": true を返す",
       "source": "2026-11-13 点検（実測: auth status が loggedIn false、.credentials.json の最終更新 09-19 12:53、ログの CLI call failed 153 件が OAuth session expired）"
     },
@@ -115,7 +115,7 @@
     {
       "id": 17,
       "name": "抽出プロンプトを現行の書き方に直す（指示・例・入力をタグで分ける、肯定形、理由を添える、例を 3〜5 個）。着手時に Haiku 5.5 向けの公式ページを読む",
-      "status": "not_started",
+      "status": "passing",
       "verify": "テスト用スラッグで実抽出を 3 本走らせ、3 本とも箇条書きまたは NONE で返る（費用が掛かるため user の承認後）",
       "source": "2026-11-13 点検（公式 Prompting best practices を確認。現行は『書かない』の列挙と太字の強調が中心。Haiku 5.5 専用ページは未読）"
     },
@@ -143,7 +143,7 @@
     {
       "id": 21,
       "name": "抽出 1 回の費用を現行の Haiku で測り直し、上限の定数の根拠を更新する",
-      "status": "not_started",
+      "status": "passing",
       "verify": "lib_transcript.py のコメントと design.md に、現行 Haiku での実測値が同じ値で書かれている",
       "source": "2026-11-13 点検（MAX_DIGEST_CHARS と DEFAULT_MAX_BUDGET_USD の根拠は 2026-08-24 の Haiku 4.5。10-02 にエイリアス化した後は未実測）"
     },
@@ -174,11 +174,18 @@
       "status": "passing",
       "verify": "`git status -sb` が origin/master と差分なし、payload が正本と diff 一致、`python tests/run_offline.py` が全件通過する",
       "source": "2026-11-13 実測（git push が拒否。origin/master に 0855917・9eee490・aab5550。モデル指定と learn の frontmatter がこの PC の正本と食い違う。user の決定待ち）"
+    },
+    {
+      "id": 26,
+      "name": "digest の上限（20,000 文字）を広げるかを、抽出の質を比べて決める。費用は Haiku 4.5 のときの約 1/20 になり、上限を決めた理由（予算内に収める）は無くなっている",
+      "status": "not_started",
+      "verify": "同じ記録 3 本以上で上限 20,000 文字と広げた値の抽出結果を比べた記録が design.md にあり、MAX_DIGEST_CHARS がその結論どおりの値になっている",
+      "source": "2026-11-13 実測（費用 $0.0008〜0.0039/回。直近 38 本のうち 21 本が上限超え。質への影響は未測定）"
     }
   ],
-  "total": 25,
-  "passing": 13,
+  "total": 26,
+  "passing": 16,
   "failing": 0,
-  "not_started": 12,
+  "not_started": 10,
   "dropped": 0
 }

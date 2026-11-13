@@ -40,3 +40,12 @@ Session 4 progress (2026-11-13):
 - 経緯と数値は design.md §19
 - Next: test #1（user が `claude /login`）。ログイン後に、やり直しの経路で `wrote` が出ることを確かめる（未確認）。次に第 3 段（#17・#18・#20・#21）
 - Note: やり直しのテストは lib_extract.log を差し替える。差し替えないと本物のログに CLI call failed が書かれ、失敗通知の集計を汚す
+
+Session 5 progress (2026-11-13):
+- user から「ログインした」と連絡があったが、`claude auth status` は loggedIn false のまま、.credentials.json も 09-19 から未更新。test #1 は not_started のまま
+- test #18 を passing に（digest を user 発言優先に。テスト 16 件通過。実データ 21 本で、落ちる user 発言が 482 件 → 0 件）
+- test #20 を passing に（learn の description を日本語にし、位置づけを修正。payload と一致）
+- 正本を変更: hooks/lib_transcript.py・skills/learn/SKILL.md。変更前は ~/.claude/backup/2026-11-13-stage3/
+- 経緯と数値は design.md §20
+- Next: test #1（ログインの入り先を user と確認）→ ログイン後に test #17（Haiku 5.5 向けの公式ページを読んでからプロンプトを書き直し、実抽出 3 本）と test #21（費用の再実測）。やり直しの経路で wrote が出ることも同時に確かめる
+- Note: 新しい digest で抽出の質と費用がどう変わるかは未確認（実抽出を走らせていない）

@@ -1,8 +1,7 @@
 ---
 name: learn
-description: Manually extract learnings from the current session and promote them into project memory. Use when the user runs /learn, or asks to "save what we learned", "覚えておいて" for the whole session (not a single fact), or before ending a session where SessionEnd hooks might not fire (app force-quit, crash risk). This is the manual fallback for the automatic SessionEnd hook — see ~/.claude/rules/self-improve.md for the promotion criteria this skill follows.
+description: セッションの知見を、その場でプロジェクトの memory/ へ昇格させる。この会話全体を Claude 本体が直接見て、抽出・判断・保存まで行う（Haiku は使わない）。あわせて、このプロジェクトの INBOX に溜まった未確認の候補（フックが自動抽出したもの）も処理する。user が /learn を実行したとき、「今回学んだことを保存して」「このセッションのことを覚えておいて」と頼まれたとき、セッション開始時の INBOX 通知を処理するよう頼まれたときに使う。1 件の事実だけを覚える依頼は対象外（通常のメモリ保存で足りる）。昇格の判断基準は ~/.claude/rules/self-improve.md。
 when_to_use: 「今回学んだことを保存して」「セッションの知見を記録して」と頼まれたとき
-argument-hint: (no arguments)
 ---
 
 # /learn — 手動での知見抽出・昇格
@@ -11,10 +10,11 @@ argument-hint: (no arguments)
 昇格するかどうかの判断基準はここに定義されている。このスキルはその基準を
 「今の会話全体」に対してその場で適用する。
 
-自動の SessionEnd フック（`~/.claude/hooks/session_end_learn.py`）は
-Haiku にログを渡して抽出させるが、このコマンドは違う。**あなた自身が
-この会話全体を実際に見ているので、Haiku を経由せず、あなた自身が
-抽出から判断・書き込みまで一貫して行う。**
+自動の抽出（セッション終了時のフックと、次回開始時の拾い直し）は、会話の記録を
+Haiku に渡して候補を INBOX に積むだけで、memory/ には書かない。このコマンドは違う。
+**あなた自身がこの会話全体を実際に見ているので、Haiku を経由せず、あなた自身が
+抽出から判断・書き込みまで一貫して行う。**INBOX の候補を memory/ へ昇格させる経路は、
+このコマンドだけである（通知が出ても、user が頼むまでは処理しない）。
 
 ## 手順
 

@@ -194,18 +194,74 @@ def _iter_transcript_messages(transcript_path: str):
                     yield ("Assistant", text)
 
 
-def build_digest(transcript_path: str, max_chars: int = MAX_DIGEST_CHARS) -> str:
-    """トランスクリプトを "User: ...\nAssistant: ...\n" 形式のダイジェストに圧縮する。
+# user の発言 1 件の上限。ログや資料を貼り付けた長い発言で枠を使い切らないための歯止め。
+# 実測（2026-11-13、直近 38 本）: user の発言 1 件の最大は 2,936 文字、1 本あたりの合計は
+# 中央値 1,333 文字・最大 6,454 文字。通常の発言はこの上限に掛からない。
+MAX_USER_MESSAGE_CHARS = 3_000
+DIGEST_SEPARATOR = "\n\n"
+# 落とした発言があった位置に置く目印。Haiku が前後を連続した会話と読み違えないようにする。
+DIGEST_OMISSION_MARK = "[…中略…]"
 
-    末尾を優先する（直近のやり取りほど学習価値が高いため、超過分は先頭から捨てる）。
+
+def select_for_digest(
+    messages: list[tuple[str, str]], max_chars: int = MAX_DIGEST_CHARS
+) -> list[str]:
+    """(role, text) の列から、ダイジェストに載せる行を選ぶ。副作用なし。
+
+    上限に収まればすべて載せる。超えるときは user の発言を優先する:
+      1. user の発言は（1 件 MAX_USER_MESSAGE_CHARS まで）すべて残す。user の発言だけで
+         上限を超えるときは、新しいものから収まる分を残す
+      2. 残りの枠を、新しい順の Assistant の発言で埋める
+      3. 元の順序で並べ、落とした箇所に DIGEST_OMISSION_MARK を置く
+
+    以前は末尾 max_chars 文字だけを残していた。長いセッションでは前半が丸ごと落ち、
+    そこにあった user の訂正・決定（抽出したい知見の中心）が Haiku に渡らなかった。
+    実測（2026-11-13、直近 38 本）: 21 本が 20,000 文字を超え、最大は 57,109 文字。
     """
-    parts = []
-    for role, text in _iter_transcript_messages(transcript_path):
-        parts.append(f"{role}: {text}")
-    digest = "\n\n".join(parts)
-    if len(digest) > max_chars:
-        digest = digest[-max_chars:]
-    return digest
+    def cost(part: str) -> int:
+        return len(part) + len(DIGEST_SEPARATOR)
+
+    parts = [
+        f"{role}: {text[:MAX_USER_MESSAGE_CHARS] if role == 'User' else text}"
+        for role, text in messages
+    ]
+    if sum(cost(p) for p in parts) <= max_chars:
+        return parts
+
+    # 1 件ごとに目印 1 つ分を足して数える（目印は落とした箇所ごとに入り、最大で残した件数 + 1）。
+    # 多めに見積もることで、目印を足しても上限を超えないことを保証する。
+    keep: set[int] = set()
+    budget = max_chars - cost(DIGEST_OMISSION_MARK)
+    newest_first = list(range(len(parts) - 1, -1, -1))
+    for wanted_role in ("User", "Assistant"):
+        for i in newest_first:
+            if messages[i][0] != wanted_role:
+                continue
+            need = cost(parts[i]) + cost(DIGEST_OMISSION_MARK)
+            if need > budget:
+                continue  # 枠に入らない長い発言は飛ばし、入るものを古いほうへ探す
+            keep.add(i)
+            budget -= need
+
+    selected: list[str] = []
+    previous = -1
+    for i in sorted(keep):
+        if i != previous + 1:
+            selected.append(DIGEST_OMISSION_MARK)
+        selected.append(parts[i])
+        previous = i
+    if previous != len(parts) - 1:
+        selected.append(DIGEST_OMISSION_MARK)
+    return selected
+
+
+def build_digest(transcript_path: str, max_chars: int = MAX_DIGEST_CHARS) -> str:
+    """トランスクリプトを "User: ...\\n\\nAssistant: ..." 形式のダイジェストに圧縮する。
+
+    上限を超えるときの選び方は select_for_digest()。
+    """
+    messages = list(_iter_transcript_messages(transcript_path))
+    return DIGEST_SEPARATOR.join(select_for_digest(messages, max_chars))
 
 
 def resolve_claude_exe(default: Path = CLAUDE_EXE) -> Path | None:

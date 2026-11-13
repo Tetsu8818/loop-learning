@@ -470,6 +470,42 @@ def test_cli_runs_outside_project():
     print("[OK] call_claude_cli: 作業フォルダを learnings/ に固定して起動する")
 
 
+def test_digest_keeps_user_messages():
+    """上限を超える記録でも、user の発言がすべてダイジェストに残ること（tests.json #18）。"""
+    from lib_transcript import (
+        DIGEST_OMISSION_MARK,
+        DIGEST_SEPARATOR,
+        MAX_USER_MESSAGE_CHARS,
+        select_for_digest,
+    )
+
+    limit = 20_000
+    # 30 往復。user は短い訂正、Assistant は長い説明（合計 約 93,000 文字）
+    messages = []
+    for n in range(30):
+        messages.append(("User", f"訂正{n:02d}: それは違う。こうしてほしい"))
+        messages.append(("Assistant", f"応答{n:02d}: " + "説明" * 1500))
+    digest = DIGEST_SEPARATOR.join(select_for_digest(messages, limit))
+
+    assert len(digest) <= limit, f"上限を超えた: {len(digest)}"
+    missing = [n for n in range(30) if f"訂正{n:02d}:" not in digest]
+    assert not missing, f"user の発言が落ちた: {missing}"
+    assert "応答29:" in digest, "最新の Assistant の発言が残っていない"
+    assert "応答00:" not in digest, "古い Assistant の発言が残っている（枠を超えるはず）"
+    assert DIGEST_OMISSION_MARK in digest, "落とした箇所の目印が無い"
+    assert digest.index("訂正00:") < digest.index("訂正29:"), "元の順序が崩れた"
+
+    # 収まるときは何も落とさず、目印も入れない
+    small = [("User", "質問"), ("Assistant", "回答")]
+    assert select_for_digest(small, limit) == ["User: 質問", "Assistant: 回答"]
+
+    # 貼り付けで長くなった user の発言は 1 件の上限で切る
+    pasted = select_for_digest([("User", "あ" * (MAX_USER_MESSAGE_CHARS + 500))], limit)
+    assert len(pasted[0]) == len("User: ") + MAX_USER_MESSAGE_CHARS, "user の発言の上限が効いていない"
+
+    print(f"[OK] digest: 上限({limit:,}文字)を超えても user の発言 30 件をすべて残し、Assistant は新しい順")
+
+
 def test_ephemeral_slug_skipped():
     """一時フォルダ由来のセッションを対象にしないこと（tests.json #23）。"""
     import tempfile
@@ -526,4 +562,5 @@ if __name__ == "__main__":
     test_retry_after_cli_failure()
     test_cli_runs_outside_project()
     test_ephemeral_slug_skipped()
+    test_digest_keeps_user_messages()
     print("\nALL OFFLINE TESTS PASSED")

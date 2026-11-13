@@ -122,7 +122,7 @@
     {
       "id": 18,
       "name": "digest を user の発言優先にする（末尾 20,000 文字の固定では、長いセッションの前半の訂正・決定が落ちる）",
-      "status": "not_started",
+      "status": "passing",
       "verify": "オフラインテスト: 上限を超える記録で、user の発言がすべて digest に残る",
       "source": "2026-11-13 点検（実測: 直近 12 本のうち 4 本が 20,000 文字超、最大 57,109 文字）"
     },
@@ -136,7 +136,7 @@
     {
       "id": 20,
       "name": "learn スキルの説明を日本語に統一し、『SessionEnd の手動フォールバック』という位置づけを実態（抽出の主経路は拾い直し）に合わせる",
-      "status": "not_started",
+      "status": "passing",
       "verify": "skills/learn/SKILL.md の description が日本語で、payload と diff 一致する",
       "source": "2026-11-13 点検（他のスキルは日本語。frontmatter のフィールド自体は公式仕様に合っている）"
     },
@@ -177,8 +177,8 @@
     }
   ],
   "total": 25,
-  "passing": 11,
+  "passing": 13,
   "failing": 0,
-  "not_started": 14,
+  "not_started": 12,
   "dropped": 0
 }

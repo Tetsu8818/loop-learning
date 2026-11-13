@@ -1,0 +1,20 @@
+Session 1 progress (2026-11-13):
+- 状態ファイルを導入（tests.json 23 件・progress.txt）。CLAUDE.md に「状態ファイル」の節を追加
+- 運用を実測: 2026-09-19 から claude CLI が未ログインで、抽出の成功 0 件・失敗 153 件（test #1）。最後の成功は 09-18
+- 認証切れの間に処理済み扱いになったセッションは 77 本。記録は残っているので再抽出できる（test #2）
+- 正本と payload・文書の食い違いを確認（test #8〜#13）。オフラインテストは 10 件通過
+- 公式ドキュメントで現行仕様を確認: PostCompact の compact_summary、--bare は API キー必須、--safe-mode でも権限設定は読まれる
+- Next: test #1（user が `claude /login`）。その後 test #10・#11（同期とコミット）、user の決定が要る #2・#7・#8・#9
+- Note: tests.json の項目は削除・書き換えしない。正本（~/.claude/）を直したら tests/run_offline.py を通す
+
+Session 2 progress (2026-11-13):
+- test #12・#13 を passing に（README の旧モデル ID が 0 件、manual §6 の表が settings.json と 5 行一致、§2 の参照先が実在）
+- test #10: payload のフック 7 本とスキル 2 本は正本と一致。post_edit_log.py（#8 待ち）と rules/self-improve.md（正本が消失）が残るため not_started のまま
+- test #15: stdout と stderr を UTF-8 に固定し、環境変数なしの出力を UTF-8 で読めた。ただしテスト自体が 4 件目で失敗するため not_started のまま
+- ~/.claude/rules/ の 6 本が消えているのを発見（test #24 を追加）。オフラインテストの失敗はこれが原因
+- 未コミット: tests.json・progress.txt・CLAUDE.md・README.md・docs/manual.md・tests/run_offline.py・payload 3 本・install.ps1（test #11）
+- Next: test #24（rules/ の復元。user の承認後）→ テスト 10 件通過を確認 → test #10・#15 を判定 → test #11（git と SVN にコミット）
+- Note: 復元の材料は backup/2026-11-13-rewrite/rules/（3 本が同サイズ）と、2026-11-13 の会話の冒頭で読み込まれた 6 本の全文（その会話の文脈にだけある）
+- test #24 を passing に（rules/ の 6 本を復元。全ファイルが消失前のバイト数と一致、合計 15,015B）
+- test #15 を passing に（環境変数なしで 10 件通過、出力を UTF-8 で読めた）
+- test #10 は not_started のまま: payload/hooks/post_edit_log.py に対応する正本が無い（#8 の決定待ち）。ほかの payload は正本と一致

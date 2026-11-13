@@ -11,14 +11,19 @@
   この処理待ちで操作がブロックされることはない。**実務上、抽出が成立して
   いるのはこの経路である**（理由は4節）。
 - **セッションを終えるたび**（`SessionEnd`）にも同じ抽出が走る設計だが、
-  導入から1か月の実績は0件（4節）。2026-09-18 から切り離し worker 方式で実験中。
+  導入から1か月の実績は0件（4節）。2026-09-18 から切り離し worker 方式に変え、
+  以後は実セッションから届いている（09-19〜11-13 に worker の起動 43 回）。
 - 拾い直しの対象は「更新から30分以上・30日以内・導入日時（`learnings/installed-at`）以降」の
   未処理トランスクリプト。1週間以上開かなかったプロジェクトも、30日以内なら拾われる。
 - 3経路（SessionEnd・拾い直し・PreCompact）は `extract.lock` で直列化される。
   抽出中にコンテキスト圧縮が起きると、その回のスナップショットは見送られる（`[SKIP]`）。
-- **編集のたび**（`PostToolUse`, Edit/Write/NotebookEdit）、触ったファイルパスが
-  `~/.claude/learnings/<proj>/edited-files.jsonl` に記録される。現状これを
-  読むコードはなく、監査ログとして溜まるだけ。
+- **編集ファイルの記録**（`PostToolUse` の `post_edit_log.py`）は、2026-11-13 に
+  この PC の正本と settings.json から外してある（`hooks/_bak/` に退避）。
+  `edited-files.jsonl` を読むコードは無い。配布物（payload・install.ps1）にはまだ
+  残っており、扱いは未決（`tests.json` #8）。
+- **状態ファイルの通知**（`SessionStart` の `state_report.py`）は、作業フォルダ直下に
+  `tests.json` があるときだけ、未完了の一覧と直近の記録を出す。`state-files` スキルの
+  一部で、このリポジトリの配布物には入っていない（扱いは `tests.json` #9）。
 - **コンテキスト圧縮の直前**（`PreCompact`）、直近のやり取りが「実装済み /
   未完了 / 直面している問題」の3点に要約され、
   `~/.claude/snapshots/session-<id>-<timestamp>.md` に保存される。
@@ -64,7 +69,7 @@ INBOX の通知とは別系統。**すでに `memory/` に入ったものを見�
 直る。**それ以外はすべて提案止まりで、承認したものだけが適用される。**
 他プロジェクトの文脈を持たないまま削除・マージすると、知識が消えるため。
 
-判断基準は `~/.claude/rules/self-improve.md` の「横断昇格の基準」にある。
+判断基準は `~/.claude/skills/memory-review/SKILL.md` の「昇格先の決め方」にある。
 
 ### `/learn` を手動で使う場面
 
@@ -95,17 +100,31 @@ INBOX の通知とは別系統。**すでに `memory/` に入ったものを見�
 `ERROR` が出たら4節を先に見る。既知のパターンに当てはまらない
 `ERROR` は新しい不具合なので、その日のログごと記録に残すこと。
 
-## 4. 既知の問題（2026-09-18 時点）
+## 4. 既知の問題（2026-11-13 時点）
+
+未解決の項目と対応の予定は、リポジトリ直下の `tests.json`（台帳）が正本。
 
 ### 未解決
 
-**`SessionEnd` 経由の抽出が実質機能しない（worker 方式で実験中）**
+**`claude` CLI が未ログインで、抽出が全件失敗している（2026-09-19〜）**
 
-- 症状: `[SKIP] session_end_learn: no transcript on disk`
+- 症状: `[ERROR] ...: CLI call failed: exit 1: Failed to authenticate: OAuth session expired and could not be refreshed.`
+- 実測（2026-11-13）: 09-19 以降の `wrote` は 0 件、この認証エラーは 153 件。
+  `claude auth status` は `"loggedIn": false`。最後の成功は 09-18。
+- 対処: user 本人がターミナルで `claude /login` を実行する（`tests.json` #1）。
+- 失敗したセッションは「処理済み」に記録されるため、再ログインしても自動では
+  再試行されない。対象は 77 本で、記録は残っている（`tests.json` #2・#4）。
+- この停止は通知されない。気づくにはログを見るしかない（`tests.json` #3）。
+
+**`SessionEnd` 経由の抽出は判定待ち**
+
+- 症状（09-18 まで）: `[SKIP] session_end_learn: no transcript on disk`
 - 実測: 導入から1か月（〜2026-09-18）、この経路での抽出は0件。同メッセージは350回、
   `digest too short (0 chars)` が89回。
-- 2026-09-18 から抽出を切り離し worker で行う形に変えた。**10/02 頃にログを見て判定する**
-  （`grep "session_end: wrote"`。0件のままなら SessionEnd フックを廃止する。[design.md §18](design.md)）。
+- 2026-09-18 から抽出を切り離し worker で行う形に変えた。09-19〜11-13 の実測では
+  worker の起動が 43 回あり、実セッションから届いている。ただし同じ期間は CLI が
+  未ログインで `wrote` が 0 件のため、**残す・廃止の判定は再ログイン後に行う**
+  （`tests.json` #6。[design.md §18](design.md)）。
 - 推論（**未確定**）: デスクトップアプリは短命なセッションを多数作っては
   捨てており、`SessionEnd` が発火しているのはそちら。中身が無いので
   トランスクリプトファイル自体が生成されない。一方、実作業をしている
@@ -137,7 +156,7 @@ INBOX の通知とは別系統。**すでに `memory/` に入ったものを見�
 | フック実行ログ | `~/.claude/hooks/logs/YYYY-MM-DD.log` |
 | 知見INBOX（プロジェクト別） | `~/.claude/learnings/<proj>/INBOX.md` |
 | 知見詳細（frontmatter付き） | `~/.claude/learnings/<proj>/YYYY-MM-DD-<sid8>.md` |
-| 編集ファイルログ | `~/.claude/learnings/<proj>/edited-files.jsonl` |
+| 編集ファイルログ（2026-11-13 から記録停止） | `~/.claude/learnings/<proj>/edited-files.jsonl` |
 | 圧縮前スナップショット | `~/.claude/snapshots/session-<id>-<timestamp>.md` |
 | 拾い直しの処理済み記録 | `~/.claude/learnings/<proj>/processed.json` |
 | 抽出の排他ロック（**全体で1つ**） | `~/.claude/learnings/extract.lock` |
@@ -162,10 +181,14 @@ INBOX の通知とは別系統。**すでに `memory/` に入ったものを見�
 | イベント | matcher | 実行スクリプト | timeout | async |
 |---|---|---|---|---|
 | `SessionEnd` | — | `session_end_learn.py` | 180s | ○ |
+| `SessionStart` | `startup\|resume\|clear\|compact` | `state_report.py` | 15s | — |
 | `SessionStart` | `startup\|resume\|clear` | `session_start_inbox.py` | 15s | — |
 | `SessionStart` | `startup\|resume\|clear` | `session_start_catchup.py` | 180s | ○ |
-| `PostToolUse` | `Edit\|Write\|NotebookEdit` | `post_edit_log.py` | 15s | ○ |
 | `PreCompact` | — | `pre_compact_snapshot.py` | 120s | — |
+
+この PC の `settings.json` の実際の内容（2026-11-13 実測）。`install.ps1` が別 PC に
+追記する内容とは 2 点で違う: `state_report.py` は入らず、`PostToolUse` の
+`post_edit_log.py` が入る（`tests.json` #8・#9 で揃える）。
 
 `memory_scan.py` はフックではない。`/memory-review` から呼ばれる走査
 スクリプトで、LLM を使わないため単体でも実行できる
@@ -180,7 +203,7 @@ INBOX の通知とは別系統。**すでに `memory/` に入ったものを見�
 `call_claude_cli()` の呼び出し1回あたり `--max-budget-usd 0.15` で
 歯止め（`lib_transcript.DEFAULT_MAX_BUDGET_USD`）。Haiku を呼ぶのは
 `SessionEnd` / `SessionStart` の拾い直し / `PreCompact` の3か所。
-`session_start_inbox` と `PostToolUse` は LLM を使わないのでゼロ。
+`session_start_inbox` と `state_report` は LLM を使わないのでゼロ。
 
 **1回あたりの実費は $0.04〜$0.10 です**（2026-08-24 実測）。以前ここに
 書いてあった「$0.01未満」は誤りでした。内訳と測り方は

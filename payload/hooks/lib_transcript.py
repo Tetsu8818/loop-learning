@@ -21,7 +21,8 @@ CLAUDE_EXE = Path(os.path.expandvars(r"%USERPROFILE%\.local\bin\claude.exe"))
 LOG_DIR = CLAUDE_HOME / "hooks" / "logs"
 LEARNINGS_DIR = CLAUDE_HOME / "learnings"
 GUARD_ENV = "CLAUDE_SELFIMPROVE_CHILD"
-HAIKU_MODEL = "claude-haiku-4-5-20251001"
+# 系列名のエイリアスで指定し、Haiku の最新版に自動で追従させる（2026-10-02 変更）
+HAIKU_MODEL = "haiku"
 
 # 実測コスト (2026-08-24, Haiku 4.5, --output-format json の total_cost_usd):
 #   digest  9,000文字 → $0.0406

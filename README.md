@@ -79,9 +79,18 @@ C:\Claude\Project\yanagawa\loop-learning\    （このリポジトリ。SVN と 
 **なぜ入口が2つあるか。**1a だけでは、導入から5日間で実運用の抽出が0件だった。
 詳細は [docs/design.md](docs/design.md) の8節。
 
-## 運用実績と検証状況（2026-09-18 時点）
+## 運用実績と検証状況（2026-11-13 時点）
 
-導入（2026-08-20）から約1か月のログの集計:
+**2026-09-19 から `claude` CLI が未ログインで、抽出は全件失敗している**（`wrote` 0 件、
+認証エラー 153 件。2026-11-13 実測）。復旧の手順と残作業は `tests.json`（台帳）と
+[docs/manual.md §4](docs/manual.md)。この PC の構成は上の図と 2 点で違う:
+`post_edit_log.py` は正本から外してあり、`state_report.py`（`state-files` スキルの
+通知フック）が SessionStart に入っている。
+
+月別の抽出（ログの `wrote` / `CLI call failed`）: 8月 63 / 8、9月 47 / 19、
+10月 0 / 104、11月（13日まで） 0 / 44。
+
+以下は導入（2026-08-20）から約1か月（〜09-18）のログの集計:
 
 | 経路 | 実績 |
 |---|---|
@@ -91,10 +100,10 @@ C:\Claude\Project\yanagawa\loop-learning\    （このリポジトリ。SVN と 
 
 | 検証項目 | 状態 |
 |---|---|
-| オフラインテスト（`tests/run_offline.py`） | ✅ 10件通過（2026-09-18） |
+| オフラインテスト（`tests/run_offline.py`） | ✅ 10件通過（2026-11-13） |
 | SessionEnd の worker 方式（手動発火） | ✅ フックは即終了、worker が32秒で書き込み・ロック解放、再送は処理済みとして SKIP（2026-09-18） |
 | PreCompact のロック待ち | ✅ ロック保持中は CLI を呼ばずに SKIP（2026-09-18） |
-| SessionEnd の worker 方式（デスクトップアプリの実セッション） | ⏳ **未確認。**10/02 頃にログで判定する |
+| SessionEnd の worker 方式（デスクトップアプリの実セッション） | ⏳ worker の起動は 43 回を確認（09-19〜11-13）。書き込みは CLI 未ログインのため 0 件で、**判定は再ログイン後**（`tests.json` #6） |
 
 既知の問題は [docs/manual.md §4](docs/manual.md) にまとめてある。
 
@@ -104,7 +113,7 @@ C:\Claude\Project\yanagawa\loop-learning\    （このリポジトリ。SVN と 
 
 1. CLI をインストール: `irm https://claude.ai/install.ps1 | iex`
 2. ログイン: `claude /login`（ブラウザで Pro/Max アカウントを承認）
-3. 疎通確認: `claude --version` / `claude -p "ping" --model claude-haiku-4-5-20251001`
+3. 疎通確認: `claude --version` / `claude -p "ping" --model haiku`
 4. Python 3.12 系を導入し、PATH に通す（`python --version` で確認）
 5. このリポジトリを移植先 PC に用意する（SVN checkout など）
 6. `powershell -File install.ps1` を実行 — `payload/` の内容を

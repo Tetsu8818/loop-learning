@@ -162,7 +162,7 @@ def collect(projects_dir: Path, only: str | None = None) -> dict:
             })
 
     # [[name]] は memory 同士に限らず rules/・skills/・output-styles/ も指す
-    # （実測: svn-default-repo は rules、fable-kata は output-styles）。
+    # （実測: svn-default-repo は rules、work-method は output-styles）。
     # 解決先にそれらを含めないと、正しいリンクを不整合として誤検出する。
     known_names = {m["name"] for m in memories}
     known_names |= {p.stem for p in (CLAUDE_HOME / "rules").glob("*.md")}

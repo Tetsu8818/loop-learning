@@ -1,0 +1,177 @@
+{
+  "tests": [
+    {
+      "id": 1,
+      "name": "claude CLI に再ログインする（user 本人の操作）。2026-09-19 から未ログインで、抽出の成功が 0 件・失敗 153 件",
+      "status": "not_started",
+      "verify": "`claude auth status` が \"loggedIn\": true を返す",
+      "source": "2026-11-13 点検（実測: auth status が loggedIn false、.credentials.json の最終更新 09-19 12:53、ログの CLI call failed 153 件が OAuth session expired）"
+    },
+    {
+      "id": 2,
+      "name": "認証切れの間に処理済み扱いになった 77 セッション（catchup 51・session_end 26、記録が残っているもの）を再抽出の対象に戻すかを決め、戻すなら実施する",
+      "status": "not_started",
+      "verify": "対象のセッション ID が各 processed.json から外れ、ログに同じ ID の `wrote` または `no learnings extracted` が出る",
+      "source": "2026-11-13 点検（実測: 失敗 104 セッション中 101 本の記録が残存。費用は 1 本 $0.04〜0.10 相当。user の決定待ち）"
+    },
+    {
+      "id": 3,
+      "name": "抽出の連続失敗を SessionStart の通知に出す（8 週間の停止に誰も気づけなかった）",
+      "status": "not_started",
+      "verify": "オフラインテスト: CLI 失敗が続くログを与えると通知文が出て、成功が挟まると出ない",
+      "source": "2026-11-13 点検（session_start_inbox.py は INBOX と棚卸ししか見ていない）"
+    },
+    {
+      "id": 4,
+      "name": "一時的な失敗（認証切れ・タイムアウト）は処理済みにせず、回数の上限つきで再試行できるようにする",
+      "status": "not_started",
+      "verify": "オフラインテスト: CLI が失敗した対象を find_candidate が次回も返し、上限回数を超えたら返さない",
+      "source": "2026-11-13 点検（design.md §10 の『claim 後に異常終了すると再試行されない』が、認証切れで 77 本に及んだ）"
+    },
+    {
+      "id": 5,
+      "name": "worker の CLI 呼び出しを、プロジェクトの settings.local.json を読まない形にする（不正な権限ルールで exit 1 が 13 件）",
+      "status": "not_started",
+      "verify": "オフラインテスト: call_claude_cli が子プロセスに渡す作業フォルダまたは引数が、プロジェクトの設定を読まない指定になっている",
+      "source": "2026-11-13 点検（実測: ログ 10-26・10-27・11-02・11-09。公式 CLI リファレンス: --safe-mode でも権限は通常どおり動く）"
+    },
+    {
+      "id": 6,
+      "name": "SessionEnd の worker 方式の判定を記録する（design.md §18 の 10/02 判定が未実施）",
+      "status": "not_started",
+      "verify": "design.md の末尾に追番の節があり、再ログイン後 2 週間の `session_end: wrote` の件数と、残す・廃止の判定が書かれている",
+      "source": "2026-11-13 点検（実測: 09-19 以降 session_end の dispatched 43 件・reason=other。wrote 0 件は認証切れのためで、現時点では判定できない）"
+    },
+    {
+      "id": 7,
+      "name": "PreCompact スナップショットの扱いを決める（24 件が溜まり、読む仕組みが無い。圧縮を最大 90 秒待たせ、Haiku の費用が掛かる）",
+      "status": "not_started",
+      "verify": "決定が design.md に追番の節で記録され、settings.json の hooks と manual.md §6 の表が決定どおりに一致する",
+      "source": "2026-11-13 点検（実測: snapshots/ 24 件・最終 09-17、参照するコードと文書は 0。公式 hooks: PostCompact が compact_summary を LLM なしで渡す。user の決定待ち）"
+    },
+    {
+      "id": 8,
+      "name": "post_edit_log.py の扱いを決めて揃える（正本と settings.json には無く、payload・install・sync・uninstall・README・manual には残っている）",
+      "status": "not_started",
+      "verify": "`grep -rn post_edit_log` の結果が、決定（廃止なら 0 件、復帰なら正本と payload が diff 一致）どおりになる",
+      "source": "2026-11-13 点検（実測。正本から外した経緯の記録は design.md に無い。user の決定待ち）"
+    },
+    {
+      "id": 9,
+      "name": "state_report.py（状態ファイルの通知フック）を、このリポジトリの配布物に含めるかを決めて揃える",
+      "status": "not_started",
+      "verify": "sync_payload.ps1・install.ps1・uninstall.ps1 の一覧と README の構成図が、決定どおりに一致する",
+      "source": "2026-11-13 点検（実測: 正本と settings.json にあり、payload と 3 本のスクリプトに無い。user の決定待ち）"
+    },
+    {
+      "id": 10,
+      "name": "payload を正本と一致させる（memory_scan.py と session_start_inbox.py が古い）",
+      "status": "not_started",
+      "verify": "payload/ の全ファイルが `diff --strip-trailing-cr` で正本と一致する",
+      "source": "2026-11-13 点検（実測: 差分はコメント 1 行と stdout の UTF-8 固定 3 行）"
+    },
+    {
+      "id": 11,
+      "name": "未コミットの変更（HAIKU_MODEL のエイリアス化 10-02、install.ps1 の疎通確認コマンド）を git と SVN にコミットする",
+      "status": "not_started",
+      "verify": "`git status --short` と `svn status` がどちらも空",
+      "source": "2026-11-13 点検（実測: 2 ファイルが両方の VCS で M のまま）"
+    },
+    {
+      "id": 12,
+      "name": "README.md の疎通確認コマンドに残る旧モデル ID（claude-haiku-4-5-20251001）を haiku に直す",
+      "status": "passing",
+      "verify": "`grep -n haiku-4-5 README.md install.ps1` が 0 件",
+      "source": "2026-11-13 点検（実測: README.md:107）"
+    },
+    {
+      "id": 13,
+      "name": "manual.md と README.md の現状記述を実態に合わせる（フック表、PostToolUse の記述、『横断昇格の基準』の参照先、判定期限、運用実績の日付）",
+      "status": "passing",
+      "verify": "manual.md §6 の表が settings.json の hooks と行単位で一致し、manual.md §2 の参照先が実在する節を指している",
+      "source": "2026-11-13 点検（実測: manual §6 に state_report と compact が無い。§2 が指す self-improve.md の節は memory-review スキルへ移動済み）"
+    },
+    {
+      "id": 14,
+      "name": "sync・install・uninstall の 3 本が別々に持つファイル一覧を 1 か所にまとめる",
+      "status": "not_started",
+      "verify": "一覧の定義が 1 ファイルにあり、3 本がそれを読んでいる（`grep -c session_start_inbox.py *.ps1` が定義ファイルだけで当たる）",
+      "source": "2026-11-13 点検（design.md §18『足すときは 3 本とも直すこと』。今回の食い違い #8・#9 の原因）"
+    },
+    {
+      "id": 15,
+      "name": "tests/run_offline.py の標準出力を UTF-8 に固定する（環境変数なしで実行すると日本語が文字化けする）",
+      "status": "passing",
+      "verify": "環境変数を付けずに実行した出力を UTF-8 として読むと、日本語のテスト名が読める",
+      "source": "2026-11-13 点検（実測。CLAUDE.md 落とし穴 2 と同じ原因）"
+    },
+    {
+      "id": 16,
+      "name": "CLAUDE.md と rules/ の合計を目安の 15,000B 以内に戻す（現在 15,015B）",
+      "status": "not_started",
+      "verify": "`cat ~/.claude/CLAUDE.md ~/.claude/rules/*.md | wc -c` が 15000 以下",
+      "source": "2026-11-13 点検（実測。CLAUDE.md 落とし穴 6）"
+    },
+    {
+      "id": 17,
+      "name": "抽出プロンプトを現行の書き方に直す（指示・例・入力をタグで分ける、肯定形、理由を添える、例を 3〜5 個）。着手時に Haiku 5.5 向けの公式ページを読む",
+      "status": "not_started",
+      "verify": "テスト用スラッグで実抽出を 3 本走らせ、3 本とも箇条書きまたは NONE で返る（費用が掛かるため user の承認後）",
+      "source": "2026-11-13 点検（公式 Prompting best practices を確認。現行は『書かない』の列挙と太字の強調が中心。Haiku 5.5 専用ページは未読）"
+    },
+    {
+      "id": 18,
+      "name": "digest を user の発言優先にする（末尾 20,000 文字の固定では、長いセッションの前半の訂正・決定が落ちる）",
+      "status": "not_started",
+      "verify": "オフラインテスト: 上限を超える記録で、user の発言がすべて digest に残る",
+      "source": "2026-11-13 点検（実測: 直近 12 本のうち 4 本が 20,000 文字超、最大 57,109 文字）"
+    },
+    {
+      "id": 19,
+      "name": "INBOX 通知の文面を、件数・場所・/learn の案内に絞る（現在は昇格の手順まで指示形で書いてあり、self-improve.md・learn スキルと重複する）",
+      "status": "not_started",
+      "verify": "オフラインテスト: 通知文に /learn の案内があり、手順の記述が無い",
+      "source": "2026-11-13 点検（session_start_inbox.py:85-89。手順の正本は learn スキル）"
+    },
+    {
+      "id": 20,
+      "name": "learn スキルの説明を日本語に統一し、『SessionEnd の手動フォールバック』という位置づけを実態（抽出の主経路は拾い直し）に合わせる",
+      "status": "not_started",
+      "verify": "skills/learn/SKILL.md の description が日本語で、payload と diff 一致する",
+      "source": "2026-11-13 点検（他のスキルは日本語。frontmatter のフィールド自体は公式仕様に合っている）"
+    },
+    {
+      "id": 21,
+      "name": "抽出 1 回の費用を現行の Haiku で測り直し、上限の定数の根拠を更新する",
+      "status": "not_started",
+      "verify": "lib_transcript.py のコメントと design.md に、現行 Haiku での実測値が同じ値で書かれている",
+      "source": "2026-11-13 点検（MAX_DIGEST_CHARS と DEFAULT_MAX_BUDGET_USD の根拠は 2026-08-24 の Haiku 4.5。10-02 にエイリアス化した後は未実測）"
+    },
+    {
+      "id": 22,
+      "name": "各プロジェクトの INBOX に滞留している未処理の知見（16 プロジェクト・31 件、すべて 8〜9 月分）の扱いを決める。昇格はそのプロジェクトを開いたときにしか進まない",
+      "status": "not_started",
+      "verify": "決定が design.md に追番の節で記録され、決定どおりに処理した後の `cat ~/.claude/learnings/*/INBOX.md | grep -c '^- '` の値が記録と一致する",
+      "source": "2026-11-13 点検（実測: 候補 31 件。user の決定待ち）"
+    },
+    {
+      "id": 23,
+      "name": "一時フォルダ由来のセッション（スラッグに AppData-Local-Temp や scratch-workspaces を含むもの）を抽出の対象から外す",
+      "status": "not_started",
+      "verify": "オフラインテスト: 一時フォルダ由来のスラッグでは find_candidate が None を返し、learnings/ にフォルダが作られない",
+      "source": "2026-11-13 点検（実測: learnings/ に該当フォルダ 2 件）"
+    },
+    {
+      "id": 24,
+      "name": "消えた ~/.claude/rules/（6 本）を復元する。~/.claude/CLAUDE.md は今も 6 本を参照しており、全プロジェクトで読み込まれなくなっている",
+      "status": "passing",
+      "verify": "`ls ~/.claude/rules/*.md` が 6 本を返し、`python tests/run_offline.py` が 10 件通過する",
+      "source": "2026-11-13 夜の実測（日中は存在し、21 時以降に消失。原因は未特定。オフラインテストの memory_scan が [[self-improve]] をリンク切れと判定して失敗する。user の承認待ち）"
+    }
+  ],
+  "total": 24,
+  "passing": 4,
+  "failing": 0,
+  "not_started": 20,
+  "dropped": 0
+}

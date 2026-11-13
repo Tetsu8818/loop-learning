@@ -299,6 +299,10 @@ def test_resolve_claude_exe():
 
 
 if __name__ == "__main__":
+    # この PC の標準出力は cp932。テスト名と失敗時のメッセージの日本語が文字化けするので
+    # UTF-8 に固定する（CLAUDE.md 落とし穴 2。2026-11-13 実測）。
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
     test_build_digest()
     test_project_slug()
     test_guard()

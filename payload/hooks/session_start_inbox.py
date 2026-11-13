@@ -130,6 +130,9 @@ def report_review(proj: str) -> bool:
 
 
 def main() -> int:
+    # この PC の既定は cp932。受け手の Claude Code は UTF-8 として読むので、
+    # 明示しないと日本語が文字化けして届く（2026-11-13 実測）。
+    sys.stdout.reconfigure(encoding="utf-8")
     hook_input = read_hook_input()
     # SessionStart には transcript_path が入っているので、そこから同じ規則で
     # プロジェクトディレクトリを特定する。
